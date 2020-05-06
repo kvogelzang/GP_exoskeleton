@@ -35,7 +35,7 @@ class ReplayBuffer:
     
     def sample(self, batch_size):
         batch = random.sample(self.buffer, batch_size)
-        batch = self.buffer[-10:]
+        #batch = self.buffer[-10:]
         state, action, reward, next_state, done = map(np.stack, zip(*batch))
         
         '''
@@ -328,21 +328,23 @@ def norm_weight():
 #
 ####################################################################
 
-TRAIN = 2 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
+TRAIN = 0 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
 env_name = "KevinFallingHumanoid-v0"
 env = NormalizedActions(gym.make(env_name))
 if TRAIN == 0:
     now = datetime.datetime.now()
-    directory_name = env_name + "_" + now.strftime("%m-%d-%H-%M")
-    os.makedirs("../saves/" + directory_name)
+    directory_name = env_name + "_" + now.strftime("%m-%d-%H-%M") + " (exo, normal)"
+    #os.makedirs("../saves/" + directory_name)
 else:
-    directory_name = "KevinFallingHumanoid-v0_04-29-19-03 (exo, normal)"
+    directory_name = "KevinFallingHumanoid-v0_05-05-14-41 (exo, normal)"
 
 action_dim = env.action_space.shape[0]
 state_dim  = env.observation_space.shape[0]
 hidden_dim = 512
 
 if TRAIN==0:
+    #print("NO WEIGHTS")
+    #norm_weights = np.ones(state_dim)
     norm_weights = norm_weight()
 else:
     norm_weights = np.ones(state_dim)
@@ -384,7 +386,7 @@ batch_size  = 128
 alpha       = 1.0       # Relative weight of entropy
 entropy_decay = 0.995   # Exponential decay of alpha
 
-#Insert load function here
+#Load function
 if TRAIN != 0:
     replay_buffer, rewards, frame_idx = load()
     alpha = alpha*entropy_decay**(int(frame_idx/1000))
@@ -399,7 +401,7 @@ if TRAIN != 2:
                 action = 0*action_dim
                 _, reward, _, _ = env.step(action)
                 #print(reward)
-                if i % 1==0:
+                if i % 10==0:
                     env.reset()
                     #raise SystemExit(0)
                 env.render()

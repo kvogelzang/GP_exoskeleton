@@ -1,4 +1,5 @@
 import numpy as np
+import math
 from gym.envs.mujoco import mujoco_env
 from gym import utils
 from mujoco_py import functions as mjcf
@@ -11,22 +12,41 @@ def mass_center(model, sim):
     speed_weights = np.array([0, 10, 5, 3, .2, 5, 3, .2, 15, 25, 5, 3, 5, 3, 0])
     return (np.sum(mass * xpos[:,2] * speed_weights) / np.sum(mass) / np.sum(speed_weights))
 
+def euler_to_quaternion(rot, theta):
+        roll = rot*math.cos(theta)
+        pitch = rot*math.sin(theta)
+
+        qw = np.cos(roll/2) * np.cos(pitch/2)
+        qx = np.cos(roll/2) * np.sin(pitch/2)
+        qy = np.sin(roll/2) * np.cos(pitch/2)
+        qz = - np.sin(roll/2) * np.sin(pitch/2)
+
+        return [qw, qx, qy, qz]
+
 class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self):
-        self.counter = 0
+        # timers used to determine end of episode, declared here so they carry over to next timestep
         self.still_timer = 0
         self.begin_timer = 0
 
+        ###### Constants and ranges of initial positions and velocities ######
+        # contact force weights
         self.force_weights = np.array([0, 1, 10, 4, 5, .1, .1, 10, 4, 5, .1, .1, 20, 20, 100, 20, 10, 5, 2, 10, 5, 2])
 
         dtr = 3.14159/180 #degrees to radians
+        # Initial free and joint positions, qpos[3:7] (rotation) is determined by qrot, so the quaternion can be declared properly
         #                             free trans    free rot                       right leg           left leg            abdomen                      right arm        left arm
-        self.init_qpos_low = np.array([0, 0, 0.85,   0.9950042, 0, 0.0998334, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   -35*dtr, -45*dtr, -30*dtr,   -85*dtr, -85*dtr, -90*dtr,   -60*dtr, -60*dtr, -90*dtr]) 
-        self.init_qpos_high= np.array([0, 0, 0.85,   0.9950042, 0, 0.0998334, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   35*dtr , 45*dtr , 75*dtr ,   60*dtr , 60*dtr ,  50*dtr,   85*dtr , 85*dtr , 50*dtr])
+        self.init_qpos_low = np.array([0, 0, 0.85,   0.9950042, 0, 0.09988334, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   -35*dtr, -45*dtr, -30*dtr,   -85*dtr, -85*dtr, -90*dtr,   -60*dtr, -60*dtr, -90*dtr]) 
+        self.init_qpos_high= np.array([0, 0, 0.85,   0.9950042, 0, 0.09988334, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   35*dtr , 45*dtr , 75*dtr ,   60*dtr , 60*dtr ,  50*dtr,   85*dtr , 85*dtr , 50*dtr])
+        #                             [rotation of fall, direction of fall (0=forward)]
+        self.init_qrot_low = np.array([0.2, 0*dtr])
+        self.init_qrot_high= np.array([0.2, 0*dtr])
 
+        # Velocity of fall and initial joint velocities. qvel[0:6] is determined based upon qvel[0 & 3] and qrot[1] (direction of fall), so velocity is always in the direction of the fall
         #                             free trans    free rot     right leg           left leg            abdomen    right arm  left arm
-        self.init_qvel_low = np.array([0.4, 0, 0,   0, 0.8, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0,   0, 0, 0,   0, 0, 0]) 
-        self.init_qvel_high= np.array([0.4, 0, 0,   0, 0.8, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0,   0, 0, 0,   0, 0, 0]) 
+        self.init_qvel_low = np.array([0.4, 0, 0,   0.8, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0,   0, 0, 0,   0, 0, 0]) 
+        self.init_qvel_high= np.array([0.4, 0, 0,   0.8, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0,   0, 0, 0,   0, 0, 0]) 
+        ###### End of constants ######
 
         mujoco_env.MujocoEnv.__init__(self, 'kevin_fallinghumanoid_pelvis.xml', 2)
         utils.EzPickle.__init__(self)
@@ -76,17 +96,18 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         return self._get_obs(), reward, done, dict(reward_kin_energy=kin_energy_cost, reward_head_height=head_height_cost)
 
     def reset_model(self):
-        c = 0.01 + self.counter*0.0001
+        c = 0.01
         qpos = self.np_random.uniform(low=self.init_qpos_low, high=self.init_qpos_high) + self.np_random.uniform(low=-c, high=c, size=self.model.nq)
+        qrot = self.np_random.uniform(low=self.init_qrot_low, high=self.init_qrot_high)
+        qpos[3:7] = euler_to_quaternion(qrot[0], qrot[1])
+
         qvel = self.np_random.uniform(low=self.init_qvel_low, high=self.init_qvel_high) + self.np_random.uniform(low=-c, high=c, size=self.model.nv)
+        qvel[0:6] = np.array([qvel[0]*math.cos(qrot[1]), -qvel[0]*math.sin(qrot[1]), 0, qvel[3]*math.sin(qrot[1]), qvel[3]*math.cos(qrot[1]), 0]) + self.np_random.uniform(low=-c, high=c, size=6)
 
         self.still_timer = 0
         self.begin_timer = 0
 
         self.set_state(qpos, qvel)
-
-        if self.counter < 500:
-            self.counter+=0
 
         return self._get_obs()
 

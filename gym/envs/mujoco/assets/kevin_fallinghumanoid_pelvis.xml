@@ -121,14 +121,14 @@
     <actuator>
         <general name="right_hip_x"     gear="100" joint="right_hip_x"/>
         <!-- <motor name="right_hip_z"     gear="200" joint="right_hip_z" /> -->
-        <general name="right_hip_y"     gear="100" joint="right_hip_y" />
-        <general name="right_knee"      gear="100" joint="right_knee" />
+        <general name="right_hip_y"     gear="70" joint="right_hip_y" />
+        <general name="right_knee"      gear="70" joint="right_knee" />
         <general name="right_ankle_y"   gear="100" joint="right_ankle_y" />
         <!-- <motor name="right_ankle_x"   gear="100" joint="right_ankle_x" /> -->
         <general name="left_hip_x"      gear="100" joint="left_hip_x" />
         <!-- <motor name="left_hip_z"      gear="200" joint="left_hip_z" /> -->
-        <general name="left_hip_y"      gear="100" joint="left_hip_y" />
-        <general name="left_knee"       gear="100" joint="left_knee" />
+        <general name="left_hip_y"      gear="70" joint="left_hip_y" />
+        <general name="left_knee"       gear="70" joint="left_knee" />
         <general name="left_ankle_y"    gear="100" joint="left_ankle_y" />
         <!-- <motor name="left_ankle_x"    gear="100" joint="left_ankle_x" />
         <motor name="abdomen_x"       gear="200" joint="abdomen_x" />
