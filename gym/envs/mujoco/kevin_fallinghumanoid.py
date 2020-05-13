@@ -34,18 +34,18 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self.force_weights = np.array([0, 1, 10, 4, 5, .1, .1, 10, 4, 5, .1, .1, 20, 20, 100, 20, 10, 5, 2, 10, 5, 2])
 
         dtr = math.pi/180 #degrees to radians
-        # Initial free and joint positions, qpos[3:7] (rotation) is determined by qrot, so the quaternion can be declared properly
-        #                             free trans    free rot                       right leg           left leg            abdomen                      right arm        left arm
-        self.init_qpos_low = np.array([0, 0, 0.87,   0.9950042, 0, 0.09988334, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   -35*dtr, -45*dtr, -30*dtr,   -85*dtr, -85*dtr, -90*dtr,   -60*dtr, -60*dtr, -90*dtr]) 
-        self.init_qpos_high= np.array([0, 0, 0.87,   0.9950042, 0, 0.09988334, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   35*dtr , 45*dtr , 75*dtr ,   60*dtr , 60*dtr ,  50*dtr,   85*dtr , 85*dtr , 50*dtr])
+        # Initial free and joint positions, qpos[3:7] (rotation) are determined by qrot, so the quaternion can be declared properly
+        #                             free trans    free rot       right leg           left leg            abdomen                      right arm        left arm
+        self.init_qpos_low = np.array([0, 0, 0.87,   1, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   -35*dtr, -45*dtr, -30*dtr,   -85*dtr, -85*dtr, -90*dtr,   -60*dtr, -60*dtr, -90*dtr]) 
+        self.init_qpos_high= np.array([0, 0, 0.87,   1, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   35*dtr , 45*dtr , 75*dtr ,   60*dtr , 60*dtr ,  50*dtr,   85*dtr , 85*dtr , 50*dtr])
         #                             [rotation of fall, direction of fall (0=forward)]
-        self.init_qrot_low = np.array([0.1*math.pi, -0*math.pi])
-        self.init_qrot_high= np.array([0.1*math.pi, 0*math.pi])
+        self.init_qrot_low = np.array([5*dtr, -5*dtr])
+        self.init_qrot_high= np.array([15*dtr, 5*dtr])
 
         # Velocity of fall and initial joint velocities. qvel[0:6] is determined based upon qvel[0 & 3] and qrot[1] (direction of fall), so velocity is always in the direction of the fall
         #                             free trans    free rot     right leg           left leg            abdomen    right arm  left arm
-        self.init_qvel_low = np.array([0.4, 0, 0,   0.8, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0,   0, 0, 0,   0, 0, 0]) 
-        self.init_qvel_high= np.array([0.4, 0, 0,   0.8, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0,   0, 0, 0,   0, 0, 0]) 
+        self.init_qvel_low = np.array([0.2, 0, 0,   0.4, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0,   0, 0, 0,   0, 0, 0]) 
+        self.init_qvel_high= np.array([0.5, 0, 0,   1.0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0,   0, 0, 0,   0, 0, 0]) 
         ###### End of constants ######
 
         mujoco_env.MujocoEnv.__init__(self, 'kevin_fallinghumanoid_pelvis.xml', 2)
@@ -104,6 +104,9 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
         qvel = self.np_random.uniform(low=self.init_qvel_low, high=self.init_qvel_high) + self.np_random.uniform(low=-c, high=c, size=self.model.nv)
         qvel[0:6] = np.array([qvel[0]*math.cos(qrot[1]), -qvel[0]*math.sin(qrot[1]), 0, qvel[3]*math.sin(qrot[1]), qvel[3]*math.cos(qrot[1]), 0]) + self.np_random.uniform(low=-c, high=c, size=6)
+
+        mjcf.mj_setTotalmass(self.model, self.np_random.uniform(low=70, high=90))
+        print("\r New episode created with, Angle with ground: {:f}  Direction of fall: {:f}  Translational velocity: {:f}  Rotational velocity: {:f}  Mass: {:f}".format(qrot[0], qrot[1], qvel[0], qvel[1], mjcf.mj_getTotalmass(self.model)), end="\n")
 
         self.still_timer = 0
         self.begin_timer = 0

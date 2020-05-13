@@ -334,9 +334,10 @@ env = NormalizedActions(gym.make(env_name))
 if TRAIN == 0:
     now = datetime.datetime.now()
     directory_name = env_name + "_" + now.strftime("%m-%d-%H-%M") + " (exo, normal)"
-    #os.makedirs("../saves/" + directory_name)
+    os.makedirs("../saves/" + directory_name)
+    #print("No save file created")
 else:
-    directory_name = "KevinFallingHumanoid-v0_05-05-14-41 (exo, normal)"
+    directory_name = "KevinFallingHumanoid-v0_05-06-15-34 (exo, normal, backward)"
 
 action_dim = env.action_space.shape[0]
 state_dim  = env.observation_space.shape[0]
@@ -384,7 +385,7 @@ frame_idx   = 0
 rewards     = []
 batch_size  = 128
 alpha       = 1.0       # Relative weight of entropy
-entropy_decay = 0.995   # Exponential decay of alpha
+entropy_decay = 0.999   # Exponential decay of alpha
 
 #Load function
 if TRAIN != 0:
@@ -434,17 +435,17 @@ if TRAIN != 2:
                     average_episode_reward = episode_reward/step
                     break
             
-            rewards.append(episode_reward)
-            if len(rewards)>=10:
+            rewards.append(average_episode_reward)
+            if len(rewards)>=25:
                 average_reward = np.mean(rewards[-25:])
             else:
             	average_reward = np.mean(rewards)
-            print("\rTotal T: {:d}  Reward: {:f} Avg Episode Reward: {:f} Avg Reward: {:f}".format(frame_idx, episode_reward, average_episode_reward, average_reward), end="\n")
+            print("\rTotal T: {:d}  Reward: {:f} Avg frame Reward: {:f} Avg avg frame Reward: {:f}".format(frame_idx, episode_reward, average_episode_reward, average_reward), end="\n")
     except KeyboardInterrupt:
         if frame_idx < obs_frames and TRAIN == 0:
             print("Warning random observation not finished! Loading from this dataset will not continue with random observation")
 
-    #print("Stopped before saving")
+    #print("Stopped without saving")
     #raise SystemExit(0)
 
     print("Saving final model\n")
