@@ -328,7 +328,7 @@ def norm_weight():
 #
 ####################################################################
 
-TRAIN = 0 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
+TRAIN = 1 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
 env_name = "KevinFallingHumanoid-v0"
 env = NormalizedActions(gym.make(env_name))
 if TRAIN == 0:
@@ -337,7 +337,7 @@ if TRAIN == 0:
     os.makedirs("../saves/" + directory_name)
     #print("No save file created")
 else:
-    directory_name = "KevinFallingHumanoid-v0_05-06-15-34 (exo, normal, backward)"
+    directory_name = "KevinFallingHumanoid-v0_05-14-14-47 (exo, normal)"
 
 action_dim = env.action_space.shape[0]
 state_dim  = env.observation_space.shape[0]
@@ -440,7 +440,7 @@ if TRAIN != 2:
                 average_reward = np.mean(rewards[-25:])
             else:
             	average_reward = np.mean(rewards)
-            print("\rTotal T: {:d}  Reward: {:f} Avg frame Reward: {:f} Avg avg frame Reward: {:f}".format(frame_idx, episode_reward, average_episode_reward, average_reward), end="\n")
+            print("\rTotal T: {:d}  Reward: {:f} Avg frame Reward: {:f} Avg avg frame Reward: {:f}".format(frame_idx, episode_reward, average_episode_reward, average_reward), end="\n\n")
     except KeyboardInterrupt:
         if frame_idx < obs_frames and TRAIN == 0:
             print("Warning random observation not finished! Loading from this dataset will not continue with random observation")

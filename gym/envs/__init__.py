@@ -11,7 +11,7 @@ register(
 register(
     id='KevinFallingHumanoid-v0',
     entry_point='gym.envs.mujoco:Kevin_FallingHumanoidEnv',
-    max_episode_steps=200,
+    max_episode_steps=2000,
 )
 
 

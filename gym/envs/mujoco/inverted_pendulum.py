@@ -5,7 +5,7 @@ from gym.envs.mujoco import mujoco_env
 class InvertedPendulumEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self):
         utils.EzPickle.__init__(self)
-        mujoco_env.MujocoEnv.__init__(self, 'inverted_pendulum.xml', 2)
+        mujoco_env.MujocoEnv.__init__(self, 'inverted_pendulum.xml', 1)
 
     def step(self, a):
         reward = 1.0
@@ -21,7 +21,7 @@ class InvertedPendulumEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         return self._get_obs()
 
     def _get_obs(self):
-        return np.concatenate([self.sim.data.qpos, self.sim.data.qvel]).ravel()
+        return np.concatenate([self.sim.data.qpos, self.sim.data.qvel, self.sim.data.qfrc_actuator, self.sim.data.ctrl]).ravel()
 
     def viewer_setup(self):
         v = self.viewer

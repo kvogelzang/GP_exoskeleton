@@ -7,7 +7,7 @@
 		<tendon/>
 	</default>
 
-	<option gravity="0 0 0" integrator="RK4" timestep="0.02"/>
+	<option gravity="0 0 0" integrator="RK4" timestep="0.002"/>
 
 	<size nstack="3000"/>
 
@@ -21,7 +21,7 @@
 	</worldbody>
 
 	<actuator>
-		<motor ctrllimited="true" ctrlrange="-1 1" gear="100" joint="hinge" name="hinge"/>
+		<general ctrllimited="true" ctrlrange="-1 1" gear="1" joint="hinge" name="hinge" dynprm="0.0333" dyntype="filter"/>
 	</actuator>
 
 </mujoco>

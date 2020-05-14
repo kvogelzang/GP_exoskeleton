@@ -31,7 +31,7 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
         ###### Constants and ranges of initial positions and velocities ######
         # contact force weights
-        self.force_weights = np.array([0, 1, 10, 4, 5, .1, .1, 10, 4, 5, .1, .1, 20, 20, 100, 20, 10, 5, 2, 10, 5, 2])
+        self.force_weights = np.array([0, 1, 10, 2, 5, .1, .1, 10, 2, 5, .1, .1, 20, 20, 100, 20, 10, 5, 2, 10, 5, 2])
 
         dtr = math.pi/180 #degrees to radians
         # Initial free and joint positions, qpos[3:7] (rotation) are determined by qrot, so the quaternion can be declared properly
@@ -44,11 +44,11 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
         # Velocity of fall and initial joint velocities. qvel[0:6] is determined based upon qvel[0 & 3] and qrot[1] (direction of fall), so velocity is always in the direction of the fall
         #                             free trans    free rot     right leg           left leg            abdomen    right arm  left arm
-        self.init_qvel_low = np.array([0.2, 0, 0,   0.4, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0,   0, 0, 0,   0, 0, 0]) 
+        self.init_qvel_low = np.array([0.3, 0, 0,   0.6, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0,   0, 0, 0,   0, 0, 0]) 
         self.init_qvel_high= np.array([0.5, 0, 0,   1.0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0,   0, 0, 0,   0, 0, 0]) 
         ###### End of constants ######
 
-        mujoco_env.MujocoEnv.__init__(self, 'kevin_fallinghumanoid_pelvis.xml', 2)
+        mujoco_env.MujocoEnv.__init__(self, 'kevin_fallinghumanoid_pelvis.xml', 1)
         utils.EzPickle.__init__(self)
         print("Kevin Falling Humanoid environment set-up")
 
@@ -66,11 +66,11 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         pos_after = mass_center(self.model, self.sim)
         data = self.sim.data
 
-        kin_energy_cost = 0.1 * np.sign(pos_after - pos_before) * np.square(pos_after - pos_before) / self.dt #kinetic energy is measured as the vertical displacement of the total CoM
+        kin_energy_cost = 20 * np.sign(pos_after - pos_before) * np.square(pos_after - pos_before) / self.dt #kinetic energy is measured as the vertical displacement of the total CoM
 
-        head_height_cost = 1 * min(data.body_xpos[14, 2]-0.3, 0) # A cost associated to keeping the head as high as possible
+        head_height_cost = 5 * min(data.body_xpos[14, 2]-0.3, 0) # A cost associated to keeping the head as high as possible
 
-        quad_ctrl_cost = -0.1 * np.square(data.ctrl).sum()
+        quad_ctrl_cost = 0 #-0.1 * np.square(data.ctrl).sum()
         
         force_normals = np.zeros(self.force_weights.shape[0])
         for i in range(data.ncon):
@@ -79,19 +79,20 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
             force_normals[data.contact[i].geom1] += c_force[0]
             force_normals[data.contact[i].geom2] += c_force[0]
-        body_hit_cost = -4e-5 * np.sum(self.force_weights * force_normals) # Cost that is related to the impact force, with different weights for different body parts
+            #print("hit bodies are: {:d} and {:d} with force {:f}".format(data.contact[i].geom1, data.contact[i].geom2, c_force[0]), end="\n")
+        body_hit_cost = -1e-5 * np.sum(self.force_weights * force_normals) # Cost that is related to the impact force, with different weights for different body parts
 
         reward = kin_energy_cost + head_height_cost + quad_ctrl_cost + body_hit_cost
 
         #print("\rkin_energy_cost: {:f}  head_height_cost: {:f} body_hit_cost: {:f} quad_ctrl_cost: {:f} reward: {:f}".format(kin_energy_cost, head_height_cost, body_hit_cost, quad_ctrl_cost, reward), end="\n")
 
-        if kin_energy_cost > 0:
+        if kin_energy_cost > -0.01:
             self.still_timer+= 1
         else:
             self.still_timer = 0
         self.begin_timer+=1
 
-        done = (self.still_timer > 8 and self.begin_timer > 50)
+        done = (self.still_timer > 50 and self.begin_timer > 500)
 
         return self._get_obs(), reward, done, dict(reward_kin_energy=kin_energy_cost, reward_head_height=head_height_cost)
 
@@ -105,7 +106,7 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         qpos[3:7] = euler_to_quaternion(qrot[0], qrot[1])
 
         qvel = self.np_random.uniform(low=self.init_qvel_low, high=self.init_qvel_high) + self.np_random.uniform(low=-c, high=c, size=self.model.nv)
-        print("\r New episode created with, Angle with ground: {:f}  Direction of fall: {:f}  Translational velocity: {:f}  Rotational velocity: {:f}  Mass: {:f}".format(qrot[0], qrot[1], qvel[0], qvel[3], mjcf.mj_getTotalmass(self.model)), end="\n")
+        print("\rNew episode created with, Angle with ground: {:f}  Direction of fall: {:f}  Translational velocity: {:f}  Rotational velocity: {:f}  Mass: {:f}".format(qrot[0], qrot[1], qvel[0], qvel[3], mjcf.mj_getTotalmass(self.model)), end="\n")
 
         qvel[0:6] = np.array([qvel[0]*math.cos(qrot[1]), -qvel[0]*math.sin(qrot[1]), 0, qvel[3]*math.sin(qrot[1]), qvel[3]*math.cos(qrot[1]), 0]) + self.np_random.uniform(low=-c, high=c, size=6)
 
