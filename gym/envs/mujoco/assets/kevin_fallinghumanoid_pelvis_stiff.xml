@@ -49,15 +49,18 @@
         <body name="pelvis" pos="0 0 0.975"  >
             <freejoint name="root"/>
             <geom name="butt" type="capsule" fromto="-.02 -.07 0 -.02 .07 0"  size="0.09" />
+            <site name="pelvis" pos="0.09 0 0"/>
             <body name="right_thigh" pos="0 -0.1 -0.04" >
                 <joint name="right_hip_x" type="hinge" pos="0 0 0" axis="1 0 0" range="-25 5"   damping="5" stiffness="10" armature="0.01" />
                 <joint name="right_hip_z" type="hinge" pos="0 0 0" axis="0 0 1" range="-60 35"  damping="5" stiffness="10" armature="0.01" />
                 <joint name="right_hip_y" type="hinge" pos="0 0 0" axis="0 1 0" range="-120 20" damping="5" stiffness="20" armature="0.01" />
                 <geom name="right_thigh1" type="capsule" fromto="0 0 0 0 0.01 -.34"  size="0.06" />
+                <site name="right_thigh" pos="0.06 0.005 -.17"/>
                 <body name="right_shin" pos="0 0.01 -0.403" >
                     <joint name="right_knee" type="hinge" pos="0 0 .02" axis="0 -1 0" range="-160 -2" stiffness="1" armature="0.0060" />
                     <geom name="right_knee1" type="sphere" pos="0 0 .02" size="0.07" />
                     <geom name="right_shin1" type="capsule" fromto="0 0 0 0 0 -.3"   size="0.049" />
+                    <site name="right_shin" pos="0.049 0 -0.15"/>
                     <body name="right_foot" pos="0 0 -.39" >
                         <joint name="right_ankle_y" type="hinge" pos="0 0 0.08" axis="0 1 0"   range="-50 50" stiffness="4" armature="0.0008" />
                         <joint name="right_ankle_x" type="hinge" pos="0 0 0.04" axis="1 0 0.5" range="-50 50" stiffness="1"  armature="0.0006" />
@@ -71,10 +74,12 @@
                 <joint name="left_hip_z" type="hinge" pos="0 0 0" axis="0 0 -1" range="-60 35" damping="5" stiffness="10" armature="0.01" />
                 <joint name="left_hip_y" type="hinge" pos="0 0 0" axis="0 1 0" range="-120 20" damping="5" stiffness="20" armature="0.01" />
                 <geom name="left_thigh1" type="capsule" fromto="0 0 0 0 -0.01 -.34"  size="0.06" />
+                <site name="left_thigh" pos="0.06 0.005 -.17"/>
                 <body name="left_shin" pos="0 -0.01 -0.403" >
                     <joint name="left_knee" type="hinge" pos="0 0 .02" axis="0 -1 0" range="-160 -2" stiffness="1" armature="0.0060" />
                     <geom name="left_knee1" type="sphere" pos="0 0 .02" size="0.07" />
                     <geom name="left_shin1" type="capsule" fromto="0 0 0 0 0 -.3"   size="0.049" />
+                    <site name="left_shin" pos="0.049 0 -0.15"/>
                     <body name="left_foot" pos="0 0 -.39" >
                         <joint name="left_ankle_y" type="hinge" pos="0 0 0.08" axis="0 1 0"   range="-50 50"  stiffness="4" armature="0.0008" />
                         <joint name="left_ankle_x" type="hinge" pos="0 0 0.04" axis="1 0 0.5" range="-50 50"  stiffness="1"  armature="0.0006" />
@@ -85,29 +90,30 @@
             </body>
             <body name="lwaist" pos="0 0 0.165" quat="1.000 0 0.002 0" >
                 <geom name="lwaist" type="capsule" fromto="0 -.06 0 0 .06 0"  size="0.06" />
-                <joint name="abdomen_x" type="hinge" pos="0 0 -0.065" axis="1 0 0" range="-35 35" damping="5" stiffness="10" armature="0.02" />
+                <joint name="abdomen_x" type="hinge" pos="0 0 -0.065" axis="1 0 0" range="-35 35" damping="2.5" stiffness="75" armature="0.02" />
                 <body name="torso" pos="0.01 0 0.26" quat="1.000 0 0.002 0">
-                    <joint name="abdomen_z" type="hinge" pos="0 0 -0.195" axis="0 0 1" range="-45 45" damping="5" stiffness="20" armature="0.02" />
-                    <joint name="abdomen_y" type="hinge" pos="0 0 -0.195" axis="0 1 0" range="-30 75" damping="5" stiffness="10" armature="0.02" />
+                    <joint name="abdomen_z" type="hinge" pos="0 0 -0.195" axis="0 0 1" range="-45 45" damping="2.5" stiffness="75" armature="0.02" />
+                    <joint name="abdomen_y" type="hinge" pos="0 0 -0.195" axis="0 1 0" range="-30 75" damping="2.5" stiffness="75" armature="0.02" />
                     <geom name="torso1" type="capsule" fromto="0 -.07 0 0 .07 0"  size="0.07" />
+                    <site name="torso" pos="0.07 0 0"/>
                     <geom name="head" type="sphere" pos="0 0 .19" size=".09" />
                     <geom name="uwaist" type="capsule" fromto="-.01 -.06 -.12 -.01 .06 -.12" size="0.06" />
                     <body name="right_upper_arm" pos="0 -0.17 0.06" >
-                        <joint name="right_shoulder1" type="hinge" pos="0 0 0" axis="2 1 1"  range="-85 60" stiffness="1" armature="0.0068" />
-                        <joint name="right_shoulder2" type="hinge" pos="0 0 0" axis="0 -1 1" range="-85 60" stiffness="1"  armature="0.0051" />
+                        <joint name="right_shoulder1" type="hinge" pos="0 0 0" axis="2 1 1"  range="-85 60" damping="2.5" stiffness="75" armature="0.0068" />
+                        <joint name="right_shoulder2" type="hinge" pos="0 0 0" axis="0 -1 1" range="-85 60" damping="2.5" stiffness="75"  armature="0.0051" />
                         <geom name="right_uarm1" type="capsule" fromto="0 0 0 .16 -.16 -.16"  size="0.04 0.16" />
                         <body name="right_lower_arm" pos=".18 -.18 -.18" >
-                            <joint name="right_elbow" type="hinge" pos="0 0 0" axis="0 -1 1" range="-90 50"  stiffness="0" armature="0.0028" />
+                            <joint name="right_elbow" type="hinge" pos="0 0 0" axis="0 -1 1" range="-90 50" damping="2.5" stiffness="75" armature="0.0028" />
                             <geom name="right_larm" type="capsule" fromto="0.01 0.01 0.01 .17 .17 .17"  size="0.031" />
                             <geom name="right_hand" type="sphere" pos=".18 .18 .18"  size="0.04"/>
                         </body>
                     </body>
                     <body name="left_upper_arm" pos="0 0.17 0.06" >
-                        <joint name="left_shoulder1" type="hinge" pos="0 0 0" axis="2 -1 1" range="-60 85" stiffness="1" armature="0.0068" />
-                        <joint name="left_shoulder2" type="hinge" pos="0 0 0" axis="0 1 1" range="-60 85"  stiffness="1" armature="0.0051" />
+                        <joint name="left_shoulder1" type="hinge" pos="0 0 0" axis="2 -1 1" range="-60 85" damping="2.5" stiffness="75" armature="0.0068" />
+                        <joint name="left_shoulder2" type="hinge" pos="0 0 0" axis="0 1 1" range="-60 85" damping="2.5" stiffness="75" armature="0.0051" />
                         <geom name="left_uarm1" type="capsule" fromto="0 0 0 .16 .16 -.16"  size="0.04 0.16" />
                         <body name="left_lower_arm" pos=".18 .18 -.18" >
-                            <joint name="left_elbow" type="hinge" pos="0 0 0" axis="0 -1 -1" range="-90 50" stiffness="0" armature="0.0028" />
+                            <joint name="left_elbow" type="hinge" pos="0 0 0" axis="0 -1 -1" range="-90 50" damping="2.5" stiffness="75" armature="0.0028" />
                             <geom name="left_larm" type="capsule" fromto="0.01 -0.01 0.01 .17 -.17 .17"  size="0.031" />
                             <geom name="left_hand" type="sphere" pos=".18 -.18 .18"  size="0.04"/>
                         </body>
@@ -142,5 +148,20 @@
         <motor name="left_elbow"      gear="200" joint="left_elbow" /> -->
 
     </actuator>
+
+    <sensor>
+        <accelerometer site="pelvis" name="pelvisacc"/>
+        <gyro site="pelvis" name="pelvisgyro"/>
+        <accelerometer site="torso" name="torsoacc"/>
+        <gyro site="torso" name="torsogyro"/>
+        <accelerometer site="right_thigh" name="right_thighacc"/>
+        <gyro site="right_thigh" name="right_thighgyro"/>
+        <accelerometer site="right_shin" name="right_shinacc"/>
+        <gyro site="right_shin" name="right_shingyro"/>
+        <accelerometer site="left_thigh" name="left_thighacc"/>
+        <gyro site="left_thigh" name="left_thighgyro"/>
+        <accelerometer site="left_shin" name="left_shinacc"/>
+        <gyro site="left_shin" name="left_shingyro"/>
+    </sensor>
 
 </mujoco>

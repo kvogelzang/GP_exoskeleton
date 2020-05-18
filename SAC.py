@@ -35,14 +35,14 @@ class ReplayBuffer:
     
     def sample(self, batch_size):
         batch = random.sample(self.buffer, batch_size)
-        #batch = self.buffer[-10:]
+        #batch = self.buffer
         state, action, reward, next_state, done = map(np.stack, zip(*batch))
         
         '''
         # This can be used to plot a subset of the data
-        length = self.position
-        plot(len(self.buffer), action[self.position-length:self.position, :], "Normalized action (-1,1)")
-        #plot(len(self.buffer), np.transpose([reward[self.position-length:self.position], done[self.position-length:self.position]==True]), "Reward")
+        length = 200
+        #plot(len(self.buffer), action[self.position-length:self.position, :], "Normalized action (-1,1)", legend=1)
+        plot(len(self.buffer), np.transpose([reward[self.position-length:self.position], done[self.position-length:self.position]==True]), "Reward")
         #plot(len(self.buffer), state[self.position-length:self.position, 0:5], "Free body position [0=m] / [1:4 = quat]", legend=True)
         #plot(len(self.buffer), state[self.position-length:self.position, 5:26], "Joint position [rad]")
         #plot(len(self.buffer), state[self.position-length:self.position, 26:32], "Free body velocity [0:2=m/s] / [3:5=rad/s]", legend=True)
@@ -52,7 +52,7 @@ class ReplayBuffer:
         #    print(i)
         #    plot(len(self.buffer), state[self.position-200:self.position, 53+10*i:63+10*i])
         #    plot(len(self.buffer), state[self.position-200:self.position, 183+6*i:189+6*i])
-        #plot(len(self.buffer), state[self.position-length:self.position, 268:289], "Actuator torque [Nm?]")
+        plot(len(self.buffer), state[self.position-length:self.position, np.array([267,269,270,271,273,275,276,277])], "Actuator torque [Nm?]", legend=1) #268:289
         raise SystemExit(0)
         '''
         return state, action, reward, next_state, done
@@ -68,7 +68,7 @@ def plot(frame_idx, rewards, ylabel="", subplot=None, legend=None):
     #plt.title('frame %s. reward: %s' % (frame_idx, rewards[-1]))
     plt.plot(range(len(rewards)), rewards, marker='.', ms=1)
     plt.ylabel(ylabel)
-    plt.xlabel("Past time steps (5 ms per step)")
+    plt.xlabel("Past time steps (1 ms per step)")
     if legend:
         plt.legend(range(rewards.shape[1]))
     plt.show()
@@ -134,24 +134,7 @@ class SoftQNetwork(nn.Module):
         x = self.linear3(x)
 
         return x
-    '''
-    def show(self, state, action):
-        # This can be used to show the activation of the various layers
-
-        y = torch.cat([state, action], 1)
-        y = np.repeat(np.expand_dims(y, axis=1), self.linear1.weight.data.shape[0], axis=1)
-        print(y.shape)
-        print(np.transpose(y).shape)
-        print(self.linear1.weight.data.shape)
-        x = np.absolute(self.linear1.weight.data*y)
-        print(x.shape)
-        x = np.max(x.numpy(), axis=0, keepdims=False)
-        print(x)
-        plt.figure()
-        plt.imshow(np.transpose(x), cmap='gray')
-        plt.show()
-        raise SystemExit(0)
-    '''
+    
 class PolicyNetwork(nn.Module):
     def __init__(self, num_inputs, num_actions, hidden_size, norm_weights, init_w=3e-3, log_std_min=-20, log_std_max=2):
         super(PolicyNetwork, self).__init__()
@@ -205,6 +188,19 @@ class PolicyNetwork(nn.Module):
         
         action  = action.cpu()#.detach().cpu().numpy()
         return action[0]
+        '''
+    def show(self, state, action):
+        # This can be used to show the activation of the various layers
+
+        y = state #torch.cat([state, action], 1)
+        y = np.repeat(np.expand_dims(y, axis=1), self.linear1.weight.data.shape[0], axis=1)
+        x = np.absolute(self.linear1.weight.data*y)
+        x = np.max(x.numpy(), axis=0, keepdims=False)
+        plt.figure()
+        plt.imshow(np.transpose(x), cmap='gray')
+        plt.show()
+        raise SystemExit(0)
+        '''
 
 def update(batch_size,gamma=0.99,soft_tau=1e-2, alpha = 1):
     
@@ -216,7 +212,7 @@ def update(batch_size,gamma=0.99,soft_tau=1e-2, alpha = 1):
     reward     = torch.FloatTensor(reward).unsqueeze(1).to(device)
     done       = torch.FloatTensor(np.float32(done)).unsqueeze(1).to(device)
 
-    #soft_q_net1.show(state, action)
+    #policy_net.show(state, action)
     #raise SystemExit(0)
 
     predicted_q_value1 = soft_q_net1(state, action)
@@ -303,8 +299,7 @@ def load(filename="end", directory="saves"):
     return (replay_buffer, rewards, frame_idx)
 
 def norm_weight():
-    min_values = np.ones(state_dim, dtype=float) * 10e6
-    max_values = np.ones(state_dim, dtype=float) *-10e6
+    max_values = np.zeros(state_dim, dtype=float)
 
     env.reset()
 
@@ -312,13 +307,12 @@ def norm_weight():
         action = 2*np.random.random(action_dim)-1
         next_state, reward, done, _ = env.step(action)
 
-        min_values = np.minimum(next_state, min_values)
-        max_values = np.maximum(next_state, max_values)
+        max_values = np.maximum(np.absolute(next_state), max_values)
 
         if done:
             env.reset()
 
-    norm_weight = 1/(np.maximum(np.absolute(max_values),np.absolute(min_values)))
+    norm_weight = 1/(max_values)
     norm_weight[norm_weight == inf] = 1
 
     return norm_weight
@@ -328,16 +322,16 @@ def norm_weight():
 #
 ####################################################################
 
-TRAIN = 1 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
+TRAIN = 0 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
 env_name = "KevinFallingHumanoid-v0"
 env = NormalizedActions(gym.make(env_name))
 if TRAIN == 0:
     now = datetime.datetime.now()
-    directory_name = env_name + "_" + now.strftime("%m-%d-%H-%M") + " (exo, normal)"
+    directory_name = env_name + "_" + now.strftime("%m-%d-%H-%M") + " (exo, normal, 100Hz, only body hit, sensors)"
     os.makedirs("../saves/" + directory_name)
     #print("No save file created")
 else:
-    directory_name = "KevinFallingHumanoid-v0_05-14-14-47 (exo, normal)"
+    directory_name = "KevinFallingHumanoid-v0_05-15-15-18 (exo, normal, 100Hz, stiff)"
 
 action_dim = env.action_space.shape[0]
 state_dim  = env.observation_space.shape[0]
@@ -402,7 +396,7 @@ if TRAIN != 2:
                 action = 0*action_dim
                 _, reward, _, _ = env.step(action)
                 #print(reward)
-                if i % 10==0:
+                if i % 200==0:
                     env.reset()
                     #raise SystemExit(0)
                 env.render()
