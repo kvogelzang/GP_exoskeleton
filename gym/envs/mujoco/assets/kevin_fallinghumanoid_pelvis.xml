@@ -13,7 +13,8 @@
     <default>
         <joint limited="true" damping="1" armature="0"/>
         <geom condim="1" material="matgeom"/>
-        <general ctrlrange="-1 1" ctrllimited="true" dynprm="0.0333" dyntype="filter"/>
+        <!--<general ctrlrange="-1 1" ctrllimited="true" dynprm="0.0333" dyntype="filter"/>-->
+        <motor ctrlrange="-1 1" ctrllimited="true"/>
     </default>
 
     <option timestep="0.005" iterations="50" tolerance="1e-10" solver="Newton" jacobian="dense" cone="pyramidal"/>
@@ -49,6 +50,7 @@
         <body name="pelvis" pos="0 0 0.975"  >
             <freejoint name="root"/>
             <geom name="butt" type="capsule" fromto="-.02 -.07 0 -.02 .07 0"  size="0.09" />
+            <site name="pelvis" pos="-0.09 0 0"/>
             <body name="right_thigh" pos="0 -0.1 -0.04" >
                 <joint name="right_hip_x" type="hinge" pos="0 0 0" axis="1 0 0" range="-25 5"   damping="5" stiffness="10" armature="0.01" />
                 <joint name="right_hip_z" type="hinge" pos="0 0 0" axis="0 0 1" range="-60 35"  damping="5" stiffness="10" armature="0.01" />
@@ -58,6 +60,7 @@
                     <joint name="right_knee" type="hinge" pos="0 0 .02" axis="0 -1 0" range="-160 -2" stiffness="1" armature="0.0060" />
                     <geom name="right_knee1" type="sphere" pos="0 0 .02" size="0.07" />
                     <geom name="right_shin1" type="capsule" fromto="0 0 0 0 0 -.3"   size="0.049" />
+                    <site name="right_shin" pos="0.049 0 -0.15"/>
                     <body name="right_foot" pos="0 0 -.39" >
                         <joint name="right_ankle_y" type="hinge" pos="0 0 0.08" axis="0 1 0"   range="-50 50" stiffness="4" armature="0.0008" />
                         <joint name="right_ankle_x" type="hinge" pos="0 0 0.04" axis="1 0 0.5" range="-50 50" stiffness="1"  armature="0.0006" />
@@ -75,6 +78,7 @@
                     <joint name="left_knee" type="hinge" pos="0 0 .02" axis="0 -1 0" range="-160 -2" stiffness="1" armature="0.0060" />
                     <geom name="left_knee1" type="sphere" pos="0 0 .02" size="0.07" />
                     <geom name="left_shin1" type="capsule" fromto="0 0 0 0 0 -.3"   size="0.049" />
+                    <site name="left_shin" pos="0.049 0 -0.15"/>
                     <body name="left_foot" pos="0 0 -.39" >
                         <joint name="left_ankle_y" type="hinge" pos="0 0 0.08" axis="0 1 0"   range="-50 50"  stiffness="4" armature="0.0008" />
                         <joint name="left_ankle_x" type="hinge" pos="0 0 0.04" axis="1 0 0.5" range="-50 50"  stiffness="1"  armature="0.0006" />
@@ -90,6 +94,7 @@
                     <joint name="abdomen_z" type="hinge" pos="0 0 -0.195" axis="0 0 1" range="-45 45" damping="5" stiffness="20" armature="0.02" />
                     <joint name="abdomen_y" type="hinge" pos="0 0 -0.195" axis="0 1 0" range="-30 75" damping="5" stiffness="10" armature="0.02" />
                     <geom name="torso1" type="capsule" fromto="0 -.07 0 0 .07 0"  size="0.07" />
+                    <site name="torso" pos="-0.07 0 0"/>
                     <geom name="head" type="sphere" pos="0 0 .19" size=".09" />
                     <geom name="uwaist" type="capsule" fromto="-.01 -.06 -.12 -.01 .06 -.12" size="0.06" />
                     <body name="right_upper_arm" pos="0 -0.17 0.06" >
@@ -119,28 +124,40 @@
     </worldbody>
 
     <actuator>
-        <general name="right_hip_x"     gear="100" joint="right_hip_x"/>
+        <motor name="abdomen_x"       gear="80" joint="abdomen_x" />
+        <motor name="abdomen_z"       gear="80" joint="abdomen_z" />
+        <motor name="abdomen_y"       gear="80" joint="abdomen_y" />
+        <motor name="right_shoulder1" gear="40" joint="right_shoulder1" />
+        <motor name="right_shoulder2" gear="40" joint="right_shoulder2" />
+        <motor name="right_elbow"     gear="80" joint="right_elbow" />
+        <motor name="left_shoulder1"  gear="40" joint="left_shoulder1" />
+        <motor name="left_shoulder2"  gear="40" joint="left_shoulder2" />
+        <motor name="left_elbow"      gear="80" joint="left_elbow" />
+        <motor name="right_hip_x"     gear="100" joint="right_hip_x"/>
         <!-- <motor name="right_hip_z"     gear="200" joint="right_hip_z" /> -->
-        <general name="right_hip_y"     gear="70" joint="right_hip_y" />
-        <general name="right_knee"      gear="70" joint="right_knee" />
-        <general name="right_ankle_y"   gear="100" joint="right_ankle_y" />
+        <motor name="right_hip_y"     gear="70" joint="right_hip_y" />
+        <motor name="right_knee"      gear="70" joint="right_knee" />
+        <motor name="right_ankle_y"   gear="100" joint="right_ankle_y" />
         <!-- <motor name="right_ankle_x"   gear="100" joint="right_ankle_x" /> -->
-        <general name="left_hip_x"      gear="100" joint="left_hip_x" />
+        <motor name="left_hip_x"      gear="100" joint="left_hip_x" />
         <!-- <motor name="left_hip_z"      gear="200" joint="left_hip_z" /> -->
-        <general name="left_hip_y"      gear="70" joint="left_hip_y" />
-        <general name="left_knee"       gear="70" joint="left_knee" />
-        <general name="left_ankle_y"    gear="100" joint="left_ankle_y" />
-        <!-- <motor name="left_ankle_x"    gear="100" joint="left_ankle_x" />
-        <motor name="abdomen_x"       gear="200" joint="abdomen_x" />
-        <motor name="abdomen_z"       gear="200" joint="abdomen_z" />
-        <motor name="abdomen_y"       gear="200" joint="abdomen_y" />
-        <motor name="right_shoulder1" gear="100" joint="right_shoulder1" />
-        <motor name="right_shoulder2" gear="100" joint="right_shoulder2" />
-        <motor name="right_elbow"     gear="200" joint="right_elbow" />
-        <motor name="left_shoulder1"  gear="100" joint="left_shoulder1" />
-        <motor name="left_shoulder2"  gear="100" joint="left_shoulder2" />
-        <motor name="left_elbow"      gear="200" joint="left_elbow" /> -->
+        <motor name="left_hip_y"      gear="70" joint="left_hip_y" />
+        <motor name="left_knee"       gear="70" joint="left_knee" />
+        <motor name="left_ankle_y"    gear="100" joint="left_ankle_y" />
+        <!-- <motor name="left_ankle_x"    gear="100" joint="left_ankle_x" />-->
+
 
     </actuator>
+
+    <sensor>
+        <accelerometer site="pelvis" name="pelvisacc"/>
+        <gyro site="pelvis" name="pelvisgyro"/>
+        <accelerometer site="torso" name="torsoacc"/>
+        <gyro site="torso" name="torsogyro"/>
+        <accelerometer site="right_shin" name="right_shinacc"/>
+        <gyro site="right_shin" name="right_shingyro"/>
+        <accelerometer site="left_shin" name="left_shinacc"/>
+        <gyro site="left_shin" name="left_shingyro"/>
+    </sensor>
 
 </mujoco>

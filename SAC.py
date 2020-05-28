@@ -26,6 +26,7 @@ class ReplayBuffer:
         self.capacity = capacity
         self.buffer = []
         self.position = 0
+        #self.last_episode = 0
     
     def push(self, state, action, reward, next_state, done):
         if len(self.buffer) < self.capacity:
@@ -37,11 +38,10 @@ class ReplayBuffer:
         batch = random.sample(self.buffer, batch_size)
         #batch = self.buffer
         state, action, reward, next_state, done = map(np.stack, zip(*batch))
-        
         '''
         # This can be used to plot a subset of the data
         length = 200
-        #plot(len(self.buffer), action[self.position-length:self.position, :], "Normalized action (-1,1)", legend=1)
+        plot(len(self.buffer), action[self.position-length:self.position, :], "Normalized action (-1,1)", legend=1)
         plot(len(self.buffer), np.transpose([reward[self.position-length:self.position], done[self.position-length:self.position]==True]), "Reward")
         #plot(len(self.buffer), state[self.position-length:self.position, 0:5], "Free body position [0=m] / [1:4 = quat]", legend=True)
         #plot(len(self.buffer), state[self.position-length:self.position, 5:26], "Joint position [rad]")
@@ -52,11 +52,34 @@ class ReplayBuffer:
         #    print(i)
         #    plot(len(self.buffer), state[self.position-200:self.position, 53+10*i:63+10*i])
         #    plot(len(self.buffer), state[self.position-200:self.position, 183+6*i:189+6*i])
-        plot(len(self.buffer), state[self.position-length:self.position, np.array([267,269,270,271,273,275,276,277])], "Actuator torque [Nm?]", legend=1) #268:289
+        plot(len(self.buffer), state[self.position-length:self.position, 267:289], "Actuator torque [Nm/rad]", legend=1) #78:106, np.array([267,269,270,271,273,275,276,277])
         raise SystemExit(0)
         '''
         return state, action, reward, next_state, done
     
+    def insert(self, temp_buffer, episode_reward):
+        for i in range(len(temp_buffer)):
+            state, action, _, next_state, done = temp_buffer.buffer[i]
+            self.push(state, action, episode_reward, next_state, done)
+        temp_buffer.buffer = []
+        temp_buffer.position = 0
+        '''
+        ## WHAT IF POSITION HAS JUST OVERFLOWN (AKA is ~ 1)
+        if self.last_episode < self.position:
+            for i in range(self.last_episode, self.position):
+                state, action, reward, next_state, done = self.buffer[i]
+                self.buffer[i] = (state, action, episode_reward, next_state, done)
+        else:
+            print("replay_buffer overwritten a full capacity")
+            for i in range(self.last_episode, self.capacity):
+                state, action, _, next_state, done = self.buffer[i]
+                self.buffer[i] = (state, action, episode_reward, next_state, done)
+            for i in range(0, self.position):
+                state, action, _, next_state, done = self.buffer[i]
+                self.buffer[i] = (state, action, episode_reward, next_state, done)
+        self.last_episode = self.position + 1
+        '''
+
     def __len__(self):
         return len(self.buffer)
 
@@ -68,7 +91,7 @@ def plot(frame_idx, rewards, ylabel="", subplot=None, legend=None):
     #plt.title('frame %s. reward: %s' % (frame_idx, rewards[-1]))
     plt.plot(range(len(rewards)), rewards, marker='.', ms=1)
     plt.ylabel(ylabel)
-    plt.xlabel("Past time steps (1 ms per step)")
+    plt.xlabel("Past time steps (10 ms per step)")
     if legend:
         plt.legend(range(rewards.shape[1]))
     plt.show()
@@ -174,7 +197,7 @@ class PolicyNetwork(nn.Module):
         z      = normal.sample()
         action = torch.tanh(mean+ std*z.to(device)) # Reparametrization trick
         log_prob = Normal(mean, std).log_prob(mean+ std*z.to(device)) - torch.log(1 - action.pow(2) + epsilon)
-        
+
         return action, log_prob, z, mean, log_std
         
     def get_action(self, state, random=1):
@@ -214,6 +237,7 @@ def update(batch_size,gamma=0.99,soft_tau=1e-2, alpha = 1):
 
     #policy_net.show(state, action)
     #raise SystemExit(0)
+    #print(np.transpose(target_value_func.detach().numpy()))
 
     predicted_q_value1 = soft_q_net1(state, action)
     predicted_q_value2 = soft_q_net2(state, action)
@@ -228,6 +252,7 @@ def update(batch_size,gamma=0.99,soft_tau=1e-2, alpha = 1):
     q_value_loss1 = soft_q_criterion1(predicted_q_value1, target_q_value.detach())
     q_value_loss2 = soft_q_criterion2(predicted_q_value2, target_q_value.detach())
 
+    
     soft_q_optimizer1.zero_grad()
     q_value_loss1.backward()
     soft_q_optimizer1.step()
@@ -290,11 +315,8 @@ def load(filename="end", directory="saves"):
     with open(path + "/" + filename + "_rewards", 'rb') as pickle_file:
         rewards = pickle.load(pickle_file)
 
-    try:
-        with open(path + "/" + filename + "_frame_idx", 'rb') as pickle_file:
-            frame_idx = pickle.load(pickle_file)
-    except:
-        frame_idx = 0
+    with open(path + "/" + filename + "_frame_idx", 'rb') as pickle_file:
+        frame_idx = pickle.load(pickle_file)
 
     return (replay_buffer, rewards, frame_idx)
 
@@ -322,16 +344,19 @@ def norm_weight():
 #
 ####################################################################
 
-TRAIN = 0 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
+TRAIN = 2 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
+saving = 0 # 0 = not saving, 1 = saving
 env_name = "KevinFallingHumanoid-v0"
 env = NormalizedActions(gym.make(env_name))
 if TRAIN == 0:
     now = datetime.datetime.now()
-    directory_name = env_name + "_" + now.strftime("%m-%d-%H-%M") + " (exo, normal, 100Hz, only body hit, sensors)"
-    os.makedirs("../saves/" + directory_name)
-    #print("No save file created")
+    directory_name = env_name + "_" + now.strftime("%m-%d-%H-%M") + " (full, normal, 100Hz, old input, all same reward)"
+    if saving==1:
+        os.makedirs("../saves/" + directory_name)
+    else:
+        print("No save file created")
 else:
-    directory_name = "KevinFallingHumanoid-v0_05-15-15-18 (exo, normal, 100Hz, stiff)"
+    directory_name = "KevinFallingHumanoid-v0_05-26-16-49 (full, normal, 100Hz, old input, all same reward) (2)"
 
 action_dim = env.action_space.shape[0]
 state_dim  = env.observation_space.shape[0]
@@ -371,6 +396,7 @@ policy_optimizer = optim.Adam(policy_net.parameters(), lr=policy_lr)
 
 replay_buffer_size = 100000
 replay_buffer = ReplayBuffer(replay_buffer_size)
+temp_buffer = ReplayBuffer(replay_buffer_size)
 
 max_frames  = 5000000
 max_steps   = 1000
@@ -378,14 +404,15 @@ obs_frames  = 1000
 frame_idx   = 0
 rewards     = []
 batch_size  = 128
-alpha       = 1.0       # Relative weight of entropy
+alpha       = 0.1       # Relative weight of entropy
 entropy_decay = 0.999   # Exponential decay of alpha
+
+#plottime = 0
 
 #Load function
 if TRAIN != 0:
     replay_buffer, rewards, frame_idx = load()
     alpha = alpha*entropy_decay**(int(frame_idx/1000))
-    print(alpha)
 
 if TRAIN != 2:
     try:
@@ -411,14 +438,19 @@ if TRAIN != 2:
                     next_state, reward, done, _ = env.step(action.numpy())
                 else:
                     action = 2*np.random.random(action_dim)-1
-                    next_state, reward, done, _ = env.step(action)                
+                    next_state, reward, done, _ = env.step(action)
                 
-                replay_buffer.push(state, action, reward, next_state, done)
+                temp_buffer.push(state, action, reward, next_state, done)
                 
                 state = next_state
                 episode_reward += reward
                 frame_idx += 1
-                
+                '''
+                if plottime >= 400:
+                    update(batch_size, alpha)
+                else:
+                    plottime+=1
+                '''
                 if len(replay_buffer) > batch_size:
                     update(batch_size, alpha)
                 
@@ -426,6 +458,7 @@ if TRAIN != 2:
                     alpha*=entropy_decay
 
                 if done:
+                    replay_buffer.insert(temp_buffer, episode_reward/20)
                     average_episode_reward = episode_reward/step
                     break
             
@@ -439,18 +472,19 @@ if TRAIN != 2:
         if frame_idx < obs_frames and TRAIN == 0:
             print("Warning random observation not finished! Loading from this dataset will not continue with random observation")
 
-    #print("Stopped without saving")
-    #raise SystemExit(0)
+    if saving==1:
+        print("Saving final model\n")
+        save("end", "saves")
+    else:
+        print("Stopped without saving")
+        raise SystemExit(0)
 
-    print("Saving final model\n")
-    save("end", "saves")
-
-plot(frame_idx, rewards)
+plot(frame_idx, rewards, "Average reward per frame in episode")
 
 # Run a demo of the environment
 state = env.reset()
 episode_reward = 0
-random = 1
+random = 0
 frames = []
 for t in range(50000):
     # Render into buffer. 
