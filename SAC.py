@@ -44,7 +44,7 @@ class ReplayBuffer:
         state, action, reward, next_state, done = map(np.stack, zip(*batch))
         '''
         # This can be used to plot a subset of the data
-        length = 200
+        length = 400
         plot(len(self.buffer), action[self.position-length:self.position, :], "Normalized action (-1,1)", legend=1)
         plot(len(self.buffer), np.transpose([reward[self.position-length:self.position], done[self.position-length:self.position]==True]), "Reward")
         #plot(len(self.buffer), state[self.position-length:self.position, 0:5], "Free body position [0=m] / [1:4 = quat]", legend=True)
@@ -71,6 +71,7 @@ class ReplayBuffer:
                 new_reward = sum(old_rewards[i:]*self.discounted_reward[0:len(temp_buffer)-i])
 
             state, action, _, next_state, done = temp_buffer.buffer[i]
+            new_reward+=-0.05*np.square(action).sum()
             self.push(state, action, new_reward, next_state, done)
 
         temp_buffer.buffer = []
@@ -343,19 +344,19 @@ def norm_weight():
 #
 ####################################################################
 
-TRAIN = 2 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
-saving = 0 # 0 = not saving, 1 = saving
+TRAIN = 0 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
+saving = 1 # 0 = not saving, 1 = saving
 env_name = "KevinFallingHumanoid-v0"
 env = NormalizedActions(gym.make(env_name))
 if TRAIN == 0:
     now = datetime.datetime.now()
-    directory_name = env_name + "_" + now.strftime("%m-%d-%H-%M") + " (exo, normal, 100Hz, old input, backward)"
+    directory_name = env_name + "_" + now.strftime("%m-%d-%H-%M") + " (exo, normal, 100Hz, old input, forward, LP)"
     if saving==1:
         os.makedirs("../saves/" + directory_name)
     else:
         print("No save file created")
 else:
-    directory_name = "KevinFallingHumanoid-v0_05-31-19-32 (exo, normal, 100Hz, old input, backward)"
+    directory_name = "KevinFallingHumanoid-v0_06-05-23-14 (exo, normal, 100Hz, old input, forward, LP)"
 
 action_dim = env.action_space.shape[0]
 state_dim  = env.observation_space.shape[0]
@@ -445,7 +446,7 @@ if TRAIN != 2:
                 episode_reward.append(reward)
                 frame_idx += 1
                 '''
-                if plottime >= 400:
+                if plottime >= 600:
                     update(batch_size, alpha)
                 else:
                     plottime+=1
