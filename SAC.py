@@ -27,10 +27,13 @@ class ReplayBuffer:
         self.buffer = []
         self.position = 0
         discount_factor = 0.98
-        self.time_horizon = 15
+        self.time_horizon = 20
         self.discounted_reward = np.ones(self.time_horizon)
         for i in range(self.time_horizon):
             self.discounted_reward[i]*=discount_factor**i
+        sum_weights = sum(self.discounted_reward)
+        for i in range(self.time_horizon):
+            self.discounted_reward[i]/=sum_weights
     
     def push(self, state, action, reward, next_state, done):
         if len(self.buffer) < self.capacity:
@@ -56,26 +59,32 @@ class ReplayBuffer:
         #    print(i)
         #    plot(len(self.buffer), state[self.position-200:self.position, 53+10*i:63+10*i])
         #    plot(len(self.buffer), state[self.position-200:self.position, 183+6*i:189+6*i])
-        plot(len(self.buffer), state[self.position-length:self.position, np.array([267,269,270,271,273,275,276,277])], "Actuator torque [Nm/rad]", legend=1) #78:106, 267:289
+        plot(len(self.buffer), state[self.position-length:self.position, np.array([267,269,270,271,273,275,276,277])], "Actuator torque [Nm/rad]", legend=1) #78:106, 267:289 np.array([267,269,270,271,273,275,276,277])
         raise SystemExit(0)
         '''
         return state, action, reward, next_state, done
     
     def insert(self, temp_buffer, old_rewards):
         old_rewards = np.array(old_rewards)
+        new_rewards = []
+        prev_action = np.zeros(action_dim)
 
         for i in range(len(temp_buffer)):
             if i+self.time_horizon<len(temp_buffer):
-                new_reward = sum(old_rewards[i:i+self.time_horizon]*self.discounted_reward)
+                new_rewards.append(sum(old_rewards[i:i+self.time_horizon]*self.discounted_reward))
             else:
-                new_reward = sum(old_rewards[i:]*self.discounted_reward[0:len(temp_buffer)-i])
+                new_rewards.append(sum(old_rewards[i:]*self.discounted_reward[0:len(temp_buffer)-i])/sum(self.discounted_reward[0:len(temp_buffer)-i]))
 
             state, action, _, next_state, done = temp_buffer.buffer[i]
-            new_reward+=-0.05*np.square(action).sum()
-            self.push(state, action, new_reward, next_state, done)
+            new_rewards[-1]+=-0.05*np.square(action).sum()
+            #new_rewards[-1]+=-0.025*np.square(torch.FloatTensor(prev_action).to(device) - action).sum()
+            self.push(state, action, new_rewards[-1], next_state, done)
+            prev_action = action
 
         temp_buffer.buffer = []
         temp_buffer.position = 0
+
+        return new_rewards
 
     def __len__(self):
         return len(self.buffer)
@@ -294,6 +303,8 @@ def save(filename, directory):
         pickle.dump(replay_buffer, pickle_file, pickle.HIGHEST_PROTOCOL)
     with open(path + "/" + filename + "_rewards", 'wb') as pickle_file:
         pickle.dump(rewards, pickle_file, pickle.HIGHEST_PROTOCOL)
+    with open(path + "/" + filename + "_test_rewards", 'wb') as pickle_file:
+        pickle.dump(test_rewards, pickle_file, pickle.HIGHEST_PROTOCOL)
     with open(path + "/" + filename + "_frame_idx", 'wb') as pickle_file:
         pickle.dump(frame_idx, pickle_file, pickle.HIGHEST_PROTOCOL)
 
@@ -315,10 +326,42 @@ def load(filename="end", directory="saves"):
     with open(path + "/" + filename + "_rewards", 'rb') as pickle_file:
         rewards = pickle.load(pickle_file)
 
+    try:
+        with open(path + "/" + filename + "_test_rewards", 'rb') as pickle_file:
+            test_rewards = pickle.load(pickle_file)
+    except:
+        test_rewards = []
+    
     with open(path + "/" + filename + "_frame_idx", 'rb') as pickle_file:
         frame_idx = pickle.load(pickle_file)
 
-    return (replay_buffer, rewards, frame_idx)
+    return (replay_buffer, rewards, test_rewards, frame_idx)
+
+def test(render=False, random=0, test_sims=True):
+    # Run the test initial positions of the environment
+    episode_reward = []
+    if test_sims: env.add_to_test(1)
+    while True:
+        state = env.reset()
+        episode_reward.append(0)
+        # Render into buffer. 
+        for step in range(max_steps):
+            if render:
+                env.render()
+            action = policy_net.get_action(state, random).detach()
+            state, reward, done, info = env.step(action.numpy())
+            episode_reward[-1]+=reward
+            if done:
+                print("\rTest case {:d}: Episode reward: {:f}".format(env.get_test(), episode_reward[-1]), end="\n")
+                if test_sims: env.add_to_test(1)
+                break
+        if env.get_test()==0 and test_sims:
+            break
+    env.test = 0            
+    if render:        
+        env.close()
+
+    return episode_reward
 
 def norm_weight():
     max_values = np.zeros(state_dim, dtype=float)
@@ -327,7 +370,7 @@ def norm_weight():
     #print("##################### CHANGE NORMWEIGHT BACK!!!! ########################")
     for i in range(10000):
         action = 2*np.random.random(action_dim)-1
-        next_state, reward, done, _ = env.step(action)
+        next_state, _, done, _ = env.step(action)
 
         max_values = np.maximum(np.absolute(next_state), max_values)
 
@@ -344,8 +387,8 @@ def norm_weight():
 #
 ####################################################################
 
-TRAIN = 0 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
-saving = 1 # 0 = not saving, 1 = saving
+TRAIN = 1 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
+saving = 0 # 0 = not saving, 1 = saving
 env_name = "KevinFallingHumanoid-v0"
 env = NormalizedActions(gym.make(env_name))
 if TRAIN == 0:
@@ -356,7 +399,7 @@ if TRAIN == 0:
     else:
         print("No save file created")
 else:
-    directory_name = "KevinFallingHumanoid-v0_06-05-23-14 (exo, normal, 100Hz, old input, forward, LP)"
+    directory_name = "KevinFallingHumanoid-v0_06-12-14-16 (exo, normal, 100Hz, old input, forward, LP)"
 
 action_dim = env.action_space.shape[0]
 state_dim  = env.observation_space.shape[0]
@@ -403,15 +446,16 @@ max_steps   = 1000
 obs_frames  = 1000
 frame_idx   = 0
 rewards     = []
+test_rewards= []
 batch_size  = 128
-alpha       = 0.1       # Relative weight of entropy
+alpha       = 1.0       # Relative weight of entropy
 entropy_decay = 0.999   # Exponential decay of alpha
 
 #plottime = 0
 
 #Load function
 if TRAIN != 0:
-    replay_buffer, rewards, frame_idx = load()
+    replay_buffer, rewards, test_rewards, frame_idx = load()
     alpha = alpha*entropy_decay**(int(frame_idx/1000))
 
 if TRAIN != 2:
@@ -441,7 +485,8 @@ if TRAIN != 2:
                     next_state, reward, done, _ = env.step(action)
                 
                 temp_buffer.push(state, action, reward, next_state, done)
-                
+                #replay_buffer.push(state, action, reward, next_state, done)
+
                 state = next_state
                 episode_reward.append(reward)
                 frame_idx += 1
@@ -460,7 +505,7 @@ if TRAIN != 2:
                 if done:
                     break
             
-            replay_buffer.insert(temp_buffer, episode_reward)
+            episode_reward = replay_buffer.insert(temp_buffer, episode_reward)
 
             average_episode_reward = sum(episode_reward)/step
             rewards.append(average_episode_reward)
@@ -469,9 +514,11 @@ if TRAIN != 2:
             else:
             	average_reward = np.mean(rewards)
             print("\rTotal T: {:d}  Reward: {:f} Avg frame Reward: {:f} Avg avg frame Reward: {:f}".format(frame_idx, sum(episode_reward), average_episode_reward, average_reward), end="\n\n")
-            episode_reward = []
+            if len(rewards)%50 == 0:
+                test_rewards.append(test())
+
     except KeyboardInterrupt:
-        pass
+        frame_idx = math.floor(frame_idx/200)*200
 
     if saving==1:
         print("Saving final model\n")
@@ -479,22 +526,8 @@ if TRAIN != 2:
     else:
         print("Stopped without saving")
         raise SystemExit(0)
-
-plot(frame_idx, rewards, "Average reward per frame in episode", xlabel="Episodes")
-
-# Run a demo of the environment
-state = env.reset()
-episode_reward = 0
-random = 0
-frames = []
-for t in range(50000):
-    # Render into buffer. 
-    env.render()
-    action = policy_net.get_action(state, random).detach()
-    state, reward, done, info = env.step(action.numpy())
-    episode_reward+=reward
-    if done:
-        print("\r Episode reward: {:f}".format(episode_reward), end="\n")
-        episode_reward = 0
-        state = env.reset()
-env.close()
+if test_rewards!=[]:
+    plot(frame_idx, np.sum(test_rewards, 1)/9, "Average reward per episode over 9 tests", xlabel="Episodes")
+else:
+    plot(frame_idx, rewards, "Average reward per frame in episode", xlabel="Episodes")
+test(True, 0, False)

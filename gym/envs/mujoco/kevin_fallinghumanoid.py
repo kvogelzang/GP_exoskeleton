@@ -29,6 +29,9 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self.still_timer = 0
         self.begin_timer = 0
 
+        # variable which selects a test scenario if needed
+        self.test = 0
+
         ###### Constants and ranges of initial positions and velocities ######
         # contact force weights
         self.force_weights = np.array([0, 1, 10, 2, 5, .1, .1, 10, 2, 5, .1, .1, 20, 20, 100, 20, 10, 5, 2, 10, 5, 2])
@@ -39,8 +42,8 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self.init_qpos_low = np.array([0, 0, 0.87,   1, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   -35*dtr, -45*dtr, -30*dtr,   -85*dtr, -85*dtr, -90*dtr,   -60*dtr, -60*dtr, -90*dtr]) 
         self.init_qpos_high= np.array([0, 0, 0.87,   1, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   35*dtr , 45*dtr , 75*dtr ,   60*dtr , 60*dtr ,  50*dtr,   85*dtr , 85*dtr , 50*dtr])
         #                             [rotation of fall, direction of fall (0=forward)]
-        self.init_qrot_low = np.array([5*dtr, -5*dtr])
-        self.init_qrot_high= np.array([15*dtr, 5*dtr])
+        self.init_qrot_low = np.array([5*dtr, -15*dtr])
+        self.init_qrot_high= np.array([15*dtr, 15*dtr])
 
         # Velocity of fall and initial joint velocities. qvel[0:6] is determined based upon qvel[0 & 3] and qrot[1] (direction of fall), so velocity is always in the direction of the fall
         #                             free trans    free rot     right leg           left leg            abdomen    right arm  left arm
@@ -75,9 +78,9 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         pos_after = mass_center(self.model, self.sim)
         data = self.sim.data
 
-        kin_energy_cost = 2 * np.sign(pos_after - pos_before) * np.square(pos_after - pos_before) / self.dt #kinetic energy is measured as the vertical displacement of the total CoM
+        kin_energy_cost = 80 * np.sign(pos_after - pos_before) * np.square(pos_after - pos_before) / self.dt #kinetic energy is measured as the vertical displacement of the total CoM
 
-        head_height_cost = -0.05 * min(min(data.body_xpos[14, 2]-0.3, 0)*((data.body_xpos[14, 2]-head_height_before)/self.dt), 0) # A cost associated to keeping the head as high as possible
+        head_height_cost = -2 * max(min(data.body_xpos[14, 2]-0.3, 0)*((data.body_xpos[14, 2]-head_height_before)/self.dt), 0) # A cost associated to keeping the head as high as possible
 
         quad_ctrl_cost = 0#-0.002 * np.square(data.ctrl).sum()
         
@@ -89,7 +92,7 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
             force_normals[data.contact[i].geom1] += c_force[0]
             force_normals[data.contact[i].geom2] += c_force[0]
             #print("hit bodies are: {:d} and {:d} with force {:f}".format(data.contact[i].geom1, data.contact[i].geom2, c_force[0]), end="\n")
-        body_hit_cost = -1e-6 * np.sum(self.force_weights * force_normals) # Cost that is related to the impact force, with different weights for different body parts
+        body_hit_cost = -3e-5 * np.sum(self.force_weights * force_normals) # Cost that is related to the impact force, with different weights for different body parts
 
         reward = kin_energy_cost + head_height_cost + quad_ctrl_cost + body_hit_cost
         #reward = head_height_cost
@@ -106,18 +109,9 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     def reset_model(self):
         c = 0.01
-        mjcf.mj_setTotalmass(self.model, self.np_random.uniform(low=70, high=90))
 
-        qpos = self.np_random.uniform(low=self.init_qpos_low, high=self.init_qpos_high) + self.np_random.uniform(low=-c, high=c, size=self.model.nq)
-        qrot = self.np_random.uniform(low=self.init_qrot_low, high=self.init_qrot_high)
-        qpos[2] = qpos[2]*math.cos(qrot[0]*0.75)
-        qpos[3:7] = euler_to_quaternion(qrot[0], qrot[1])
-        self.model.qpos_spring[19:28] = qpos[19:28]
-
-        qvel = self.np_random.uniform(low=self.init_qvel_low, high=self.init_qvel_high) + self.np_random.uniform(low=-c, high=c, size=self.model.nv)
-        print("\rNew episode created with, Angle with ground: {:f}  Direction of fall: {:f}  Translational velocity: {:f}  Rotational velocity: {:f}  Mass: {:f}".format(qrot[0], qrot[1], qvel[0], qvel[3], mjcf.mj_getTotalmass(self.model)), end="\n")
-
-        qvel[0:6] = np.array([qvel[0]*math.cos(qrot[1]), -qvel[0]*math.sin(qrot[1]), 0, qvel[3]*math.sin(qrot[1]), qvel[3]*math.cos(qrot[1]), 0]) + self.np_random.uniform(low=-c, high=c, size=6)
+        
+        qpos, qrot, qvel = self.select_init(c)
 
         self.still_timer = 0
         self.begin_timer = 0
@@ -132,6 +126,54 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self.viewer.cam.lookat[2] = 1.0
         self.viewer.cam.elevation = -20
 
+    def select_init(self, c):
+        if self.test == 0:
+            mjcf.mj_setTotalmass(self.model, self.np_random.uniform(low=70, high=90))
+            qpos = self.np_random.uniform(low=self.init_qpos_low, high=self.init_qpos_high) + self.np_random.uniform(low=-c, high=c, size=self.model.nq)
+            qrot = self.np_random.uniform(low=self.init_qrot_low, high=self.init_qrot_high)
+            qvel = self.np_random.uniform(low=self.init_qvel_low, high=self.init_qvel_high) + self.np_random.uniform(low=-c, high=c, size=self.model.nv)
+        else:
+            mjcf.mj_setTotalmass(self.model, 80)
+            case = [(self.test-1)%3, math.floor((self.test-1)/3)]
+
+            qrot = np.zeros(2)
+            #case[0] = low/mid/high   [0/1/2]
+            if case[0] == 0:
+                qpos = self.init_qpos_low + 0
+                qrot[0] = self.init_qrot_low[0]
+                qvel = self.init_qvel_low + 0
+            elif case[0] == 1:
+                qpos = np.zeros(len(self.init_qpos_low))
+                qpos[2] = (self.init_qpos_low[2] + self.init_qpos_high[2])/2
+                qrot[0] = (self.init_qrot_low[0] + self.init_qrot_high[0])/2
+                qvel = (self.init_qvel_low + self.init_qvel_high)/2
+            else:
+                qpos = self.init_qpos_high + 0
+                qrot[0] = self.init_qrot_high[0]
+                qvel = self.init_qvel_high + 0
+
+            #case[1] = left/mid/right [0/1/2]
+            if case[1] == 0:
+                qrot[1] = self.init_qrot_low[1]
+            elif case[1] == 1:
+                qrot[1] = (self.init_qrot_low[1] + self.init_qrot_high[1])/2
+            else:
+                qrot[1] = self.init_qrot_high[1]
+        
+        print("\rNew episode created with, Angle with ground: {:f}  Direction of fall: {:f}  Translational velocity: {:f}  Rotational velocity: {:f}  Mass: {:f}".format(qrot[0], qrot[1], qvel[0], qvel[3], mjcf.mj_getTotalmass(self.model)), end="\n")
+
+        qpos[2] = qpos[2]*math.cos(qrot[0]*0.75)
+        qpos[3:7] = euler_to_quaternion(qrot[0], qrot[1])
+        self.model.qpos_spring[19:28] = qpos[19:28]
+        qvel[0:6] = np.array([qvel[0]*math.cos(qrot[1]), -qvel[0]*math.sin(qrot[1]), 0, qvel[3]*math.sin(qrot[1]), qvel[3]*math.cos(qrot[1]), 0]) + self.np_random.uniform(low=-c, high=c, size=6)
+
+        return qpos, qrot, qvel
+
+    def add_to_test(self, value):
+        self.test=(self.test+value)%10
+
+    def get_test(self):
+        return self.test
         '''
         #self.viewer.add_overlay()
         fncs = mjcf.__dict__
