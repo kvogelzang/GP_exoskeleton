@@ -387,7 +387,7 @@ def norm_weight():
 #
 ####################################################################
 
-TRAIN = 1 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
+TRAIN = 0 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
 saving = 0 # 0 = not saving, 1 = saving
 env_name = "KevinFallingHumanoid-v0"
 env = NormalizedActions(gym.make(env_name))
@@ -399,7 +399,7 @@ if TRAIN == 0:
     else:
         print("No save file created")
 else:
-    directory_name = "KevinFallingHumanoid-v0_06-12-14-16 (exo, normal, 100Hz, old input, forward, LP)"
+    directory_name = "KevinFallingHumanoid-v0_06-12-17-15 (exo, normal, 100Hz, old input, forward, LP)"
 
 action_dim = env.action_space.shape[0]
 state_dim  = env.observation_space.shape[0]
@@ -427,9 +427,9 @@ value_criterion  = nn.MSELoss()
 soft_q_criterion1 = nn.MSELoss()
 soft_q_criterion2 = nn.MSELoss()
 
-value_lr  = 3e-4
-soft_q_lr = 3e-4
-policy_lr = 3e-4
+value_lr  = 1e-4
+soft_q_lr = 1e-4
+policy_lr = 1e-4
 
 value_optimizer  = optim.Adam(value_net.parameters(), lr=value_lr)
 soft_q_optimizer1 = optim.Adam(soft_q_net1.parameters(), lr=soft_q_lr)
@@ -441,8 +441,8 @@ replay_buffer_size = 100000
 replay_buffer = ReplayBuffer(replay_buffer_size)
 temp_buffer = ReplayBuffer(replay_buffer_size)
 
-max_frames  = 5000000
-max_steps   = 1000
+max_frames  = 10000000
+max_steps   = 100000
 obs_frames  = 1000
 frame_idx   = 0
 rewards     = []

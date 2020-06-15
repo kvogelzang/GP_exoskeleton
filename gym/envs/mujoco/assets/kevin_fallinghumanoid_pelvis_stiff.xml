@@ -104,6 +104,7 @@
                         <body name="right_lower_arm" pos=".18 -.18 -.18" >
                             <joint name="right_elbow" type="hinge" pos="0 0 0" axis="0 -1 1" range="-90 50" damping="2.5" stiffness="75" armature="0.0028" />
                             <geom name="right_larm" type="capsule" fromto="0.01 0.01 0.01 .17 .17 .17"  size="0.031" />
+                            <site name="right_larm" pos=" .15 .15 .15"/>
                             <geom name="right_hand" type="sphere" pos=".18 .18 .18"  size="0.04"/>
                         </body>
                     </body>
@@ -114,6 +115,7 @@
                         <body name="left_lower_arm" pos=".18 .18 -.18" >
                             <joint name="left_elbow" type="hinge" pos="0 0 0" axis="0 -1 -1" range="-90 50" damping="2.5" stiffness="75" armature="0.0028" />
                             <geom name="left_larm" type="capsule" fromto="0.01 -0.01 0.01 .17 -.17 .17"  size="0.031" />
+                            <site name="left_larm" pos=" .15 -.15 .15"/>
                             <geom name="left_hand" type="sphere" pos=".18 -.18 .18"  size="0.04"/>
                         </body>
                     </body>
@@ -151,12 +153,27 @@
     <sensor>
         <accelerometer site="pelvis" name="pelvisacc"/>
         <gyro site="pelvis" name="pelvisgyro"/>
+        <velocimeter site="pelvis" name="pelvisvel"/>
+
         <accelerometer site="torso" name="torsoacc"/>
         <gyro site="torso" name="torsogyro"/>
+        <velocimeter site="torso" name="torsovel"/>
+
         <accelerometer site="right_shin" name="right_shinacc"/>
         <gyro site="right_shin" name="right_shingyro"/>
+        <velocimeter site="right_shin" name="right_shinvel"/>
+
         <accelerometer site="left_shin" name="left_shinacc"/>
         <gyro site="left_shin" name="left_shingyro"/>
+        <velocimeter site="left_shin" name="left_shinvel"/>
+
+        <accelerometer site="right_larm" name="right_larmacc"/>
+        <gyro site="right_larm" name="right_larmgyro"/>
+        <velocimeter site="right_larm" name="right_larmvel"/>
+
+        <accelerometer site="left_larm" name="left_larmacc"/>
+        <gyro site="left_larm" name="left_larmgyro"/>
+        <velocimeter site="left_larm" name="left_larmvel"/>
     </sensor>
 
 </mujoco>

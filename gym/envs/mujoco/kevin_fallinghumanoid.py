@@ -57,19 +57,22 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     def _get_obs(self):
         data = self.sim.data
-        '''
-        return np.concatenate([data.qpos.flat[2:],
-                               data.qvel.flat,
+
+        # Realistic input
+        return np.concatenate([data.qpos.flat[np.array([6, 8, 9, 10, 12, 14, 15, 16])],
+                               data.qvel.flat[np.array([5, 7, 8, 9, 11, 13, 14, 15])],
                                data.sensordata,
+                               -data.site_xmat.flat[np.array([2,5,8, 11,14,17, 20,23,26, 29,32,35, 38,41,44, 47,50,53])], 
                                [mjcf.mj_getTotalmass(self.model)],
-                               data.qfrc_actuator.flat])# [np.array([6, 8, 9, 10, 12, 14, 15, 16])]])        
+                               data.qfrc_actuator.flat[np.array([6, 8, 9, 10, 12, 14, 15, 16])]])        
         '''
+        # Original input
         return np.concatenate([data.qpos.flat[2:],
                                data.qvel.flat,
                                data.cinert.flat[10:-10],
                                data.cvel.flat[6:],
-                               data.qfrc_actuator.flat[6:]]) #[np.array([6, 6, 9, 10, 12, 14, 15, 16])]])
-                               
+                               data.qfrc_actuator.flat[6:]]) #[np.array([6, 8, 9, 10, 12, 14, 15, 16])]])
+        '''                      
 
     def step(self, a):
         pos_before = mass_center(self.model, self.sim)
@@ -97,7 +100,7 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         reward = kin_energy_cost + head_height_cost + quad_ctrl_cost + body_hit_cost
         #reward = head_height_cost
         #print("\rkin_energy_cost: {:f} body_hit_cost: {:f} head_height_cost: {:f} quad_ctrl_cost: {:f} reward: {:f}".format(kin_energy_cost, body_hit_cost, head_height_cost, quad_ctrl_cost, reward), end="\n")
-
+        
         if kin_energy_cost > -0.01:
             self.still_timer+= 1
         else:
