@@ -11,8 +11,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.distributions import Normal
 
-from IPython.display import clear_output
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 import datetime
 import pickle
@@ -90,7 +89,6 @@ class ReplayBuffer:
         return len(self.buffer)
 
 def plot(frame_idx, rewards, ylabel="", xlabel=None, subplot=None, legend=None):
-    clear_output(True)
     plt.figure(figsize=(10,5))
     if subplot:
         plt.subplot(subplot)
@@ -387,7 +385,7 @@ def norm_weight():
 #
 ####################################################################
 
-TRAIN = 0 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
+TRAIN = 1 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
 saving = 0 # 0 = not saving, 1 = saving
 env_name = "KevinFallingHumanoid-v0"
 env = NormalizedActions(gym.make(env_name))
@@ -526,8 +524,10 @@ if TRAIN != 2:
     else:
         print("Stopped without saving")
         raise SystemExit(0)
+'''
 if test_rewards!=[]:
     plot(frame_idx, np.sum(test_rewards, 1)/9, "Average reward per episode over 9 tests", xlabel="Episodes")
 else:
     plot(frame_idx, rewards, "Average reward per frame in episode", xlabel="Episodes")
 test(True, 0, False)
+'''

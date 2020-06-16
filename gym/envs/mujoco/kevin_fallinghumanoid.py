@@ -57,7 +57,7 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     def _get_obs(self):
         data = self.sim.data
-
+        '''
         # Realistic input
         return np.concatenate([data.qpos.flat[np.array([6, 8, 9, 10, 12, 14, 15, 16])],
                                data.qvel.flat[np.array([5, 7, 8, 9, 11, 13, 14, 15])],
@@ -72,7 +72,7 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
                                data.cinert.flat[10:-10],
                                data.cvel.flat[6:],
                                data.qfrc_actuator.flat[6:]]) #[np.array([6, 8, 9, 10, 12, 14, 15, 16])]])
-        '''                      
+        
 
     def step(self, a):
         pos_before = mass_center(self.model, self.sim)
