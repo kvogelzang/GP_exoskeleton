@@ -11,7 +11,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.distributions import Normal
 
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 import datetime
 import pickle
@@ -21,18 +21,20 @@ use_cuda = torch.cuda.is_available()
 device   = torch.device("cuda" if use_cuda else "cpu")
 
 class ReplayBuffer:
-    def __init__(self, capacity):
+    def __init__(self, capacity, min_reward = 0, max_reward=-1000):
         self.capacity = capacity
         self.buffer = []
         self.position = 0
         discount_factor = 0.98
-        self.time_horizon = 20
+        self.time_horizon = 50
         self.discounted_reward = np.ones(self.time_horizon)
         for i in range(self.time_horizon):
             self.discounted_reward[i]*=discount_factor**i
         sum_weights = sum(self.discounted_reward)
         for i in range(self.time_horizon):
             self.discounted_reward[i]/=sum_weights
+        self.min_reward = min_reward
+        self.max_reward = max_reward
     
     def push(self, state, action, reward, next_state, done):
         if len(self.buffer) < self.capacity:
@@ -58,27 +60,41 @@ class ReplayBuffer:
         #    print(i)
         #    plot(len(self.buffer), state[self.position-200:self.position, 53+10*i:63+10*i])
         #    plot(len(self.buffer), state[self.position-200:self.position, 183+6*i:189+6*i])
-        plot(len(self.buffer), state[self.position-length:self.position, np.array([267,269,270,271,273,275,276,277])], "Actuator torque [Nm/rad]", legend=1) #78:106, 267:289 np.array([267,269,270,271,273,275,276,277])
+        plot(len(self.buffer), state[self.position-length:self.position, -8:], "Actuator torque [Nm/rad]", legend=1) #78:106, 267:289,  np.array([267,269,270,271,273,275,276,277]), -8:
         raise SystemExit(0)
         '''
         return state, action, reward, next_state, done
     
     def insert(self, temp_buffer, old_rewards):
         old_rewards = np.array(old_rewards)
-        new_rewards = []
-        prev_action = np.zeros(action_dim)
+        new_rewards = [] #np.ones(len(old_rewards))*sum(old_rewards)/len(old_rewards)
+        #prev_action = np.zeros(action_dim)
+
+        sum_reward = sum(old_rewards)
+        if sum_reward<self.min_reward:
+            self.min_reward = sum_reward
+        elif sum_reward>self.max_reward:
+            self.max_reward = sum_reward
+        multiplier = ((sum_reward-self.max_reward)/(self.min_reward-self.max_reward))*2-1
+        old_rewards = multiplier*old_rewards
+
+        for i in range(self.time_horizon):
+            if i ==0: continue
+            old_rewards[i] = old_rewards[i]/sum(self.discounted_reward[self.time_horizon-i:])
 
         for i in range(len(temp_buffer)):
+            
             if i+self.time_horizon<len(temp_buffer):
                 new_rewards.append(sum(old_rewards[i:i+self.time_horizon]*self.discounted_reward))
             else:
                 new_rewards.append(sum(old_rewards[i:]*self.discounted_reward[0:len(temp_buffer)-i])/sum(self.discounted_reward[0:len(temp_buffer)-i]))
-
+            
             state, action, _, next_state, done = temp_buffer.buffer[i]
+            # CHANGE i back to -1 WHEN GOING BACK TO PER FRAME REWARD
             new_rewards[-1]+=-0.05*np.square(action).sum()
             #new_rewards[-1]+=-0.025*np.square(torch.FloatTensor(prev_action).to(device) - action).sum()
             self.push(state, action, new_rewards[-1], next_state, done)
-            prev_action = action
+            #prev_action = action
 
         temp_buffer.buffer = []
         temp_buffer.position = 0
@@ -204,6 +220,7 @@ class PolicyNetwork(nn.Module):
         z      = normal.sample()
         action = torch.tanh(mean+ std*z.to(device)) # Reparametrization trick
         log_prob = Normal(mean, std).log_prob(mean+ std*z.to(device)) - torch.log(1 - action.pow(2) + epsilon)
+        log_prob = torch.mean(log_prob, 1, keepdim=True) #torch.log(torch.prod(log_prob.exp(), 1, keepdim=True))
 
         return action, log_prob, z, mean, log_std
         
@@ -251,7 +268,6 @@ def update(batch_size,soft_tau=1e-2, alpha = 1):
     predicted_value    = value_net(state)
 
     new_action, log_prob, epsilon, mean, log_std = policy_net.evaluate(state)
-    log_prob = torch.mean(log_prob, 1, keepdim=True) #torch.log(torch.prod(log_prob.exp(), 1, keepdim=True))
     
     # Training Q Function
     target_value = target_value_net(next_state)
@@ -308,12 +324,11 @@ def save(filename, directory):
 
 def load(filename="end", directory="saves"):
     path = '../%s/%s' % (directory, directory_name)
-    value_net.load_state_dict(torch.load('%s/%s_value_net.pth' % (path, filename)))
-    target_value_net.load_state_dict(torch.load('%s/%s_target_value_net.pth' % (path, filename)))
-
-    soft_q_net1.load_state_dict(torch.load('%s/%s_q1_net.pth' % (path, filename)))
-    soft_q_net2.load_state_dict(torch.load('%s/%s_q2_net.pth' % (path, filename)))
-    policy_net.load_state_dict(torch.load('%s/%s_policy_net.pth' % (path, filename)))
+    value_net.load_state_dict(torch.load('%s/%s_value_net.pth' % (path, filename), map_location=torch.device('cpu')))
+    target_value_net.load_state_dict(torch.load('%s/%s_target_value_net.pth' % (path, filename), map_location=torch.device('cpu')))
+    soft_q_net1.load_state_dict(torch.load('%s/%s_q1_net.pth' % (path, filename), map_location=torch.device('cpu')))
+    soft_q_net2.load_state_dict(torch.load('%s/%s_q2_net.pth' % (path, filename), map_location=torch.device('cpu')))
+    policy_net.load_state_dict(torch.load('%s/%s_policy_net.pth' % (path, filename), map_location=torch.device('cpu')))
 
     if TRAIN!=2:
         with open(path + "/" + filename + "_replay_buffer", 'rb') as pickle_file:
@@ -355,7 +370,8 @@ def test(render=False, random=0, test_sims=True):
                 break
         if env.get_test()==0 and test_sims:
             break
-    env.test = 0            
+    print("\r Average reward over test cases is: {:f}".format(sum(episode_reward)/len(episode_reward)), end="\n\n")
+
     if render:        
         env.close()
 
@@ -363,29 +379,36 @@ def test(render=False, random=0, test_sims=True):
 
 def norm_weight():
     max_values = np.zeros(state_dim, dtype=float)
+    episode_reward = 0.0
+    min_reward = 0.0
+    max_reward = -1000.0
 
     env.reset()
     #print("##################### CHANGE NORMWEIGHT BACK!!!! ########################")
     for i in range(10000):
         action = 2*np.random.random(action_dim)-1
-        next_state, _, done, _ = env.step(action)
+        next_state, reward, done, _ = env.step(action)
+        episode_reward+=reward
 
         max_values = np.maximum(np.absolute(next_state), max_values)
 
         if done:
+            if episode_reward<min_reward:min_reward = episode_reward
+            if episode_reward>max_reward: max_reward = episode_reward
+            episode_reward = 0
             env.reset()
 
     norm_weight = 1/(max_values)
     norm_weight[norm_weight == inf] = 1
 
-    return norm_weight
+    return norm_weight, min_reward, max_reward
 
 ####################################################################
 #                       START OF MAIN FUNCTION
 #
 ####################################################################
 
-TRAIN = 1 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
+TRAIN = 0 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
 saving = 0 # 0 = not saving, 1 = saving
 env_name = "KevinFallingHumanoid-v0"
 env = NormalizedActions(gym.make(env_name))
@@ -397,7 +420,7 @@ if TRAIN == 0:
     else:
         print("No save file created")
 else:
-    directory_name = "KevinFallingHumanoid-v0_06-12-17-15 (exo, normal, 100Hz, old input, forward, LP)"
+    directory_name = "KevinFallingHumanoid-v0_06-22-22-08 (exo, small RB, 100Hz, real input, forward, LP)"
 
 action_dim = env.action_space.shape[0]
 state_dim  = env.observation_space.shape[0]
@@ -406,9 +429,9 @@ hidden_dim = 512
 if TRAIN==0:
     #print("NO WEIGHTS")
     #norm_weights = np.ones(state_dim)
-    norm_weights = norm_weight()
+    norm_weights, min_reward, max_reward = norm_weight()
 else:
-    norm_weights = np.ones(state_dim)
+    norm_weights, _, _ = np.ones(state_dim)
 
 value_net        = ValueNetwork(state_dim, hidden_dim, norm_weights).to(device)
 target_value_net = ValueNetwork(state_dim, hidden_dim, norm_weights).to(device)
@@ -425,9 +448,9 @@ value_criterion  = nn.MSELoss()
 soft_q_criterion1 = nn.MSELoss()
 soft_q_criterion2 = nn.MSELoss()
 
-value_lr  = 1e-4
-soft_q_lr = 1e-4
-policy_lr = 1e-4
+value_lr  = 3e-5
+soft_q_lr = 3e-5
+policy_lr = 3e-5
 
 value_optimizer  = optim.Adam(value_net.parameters(), lr=value_lr)
 soft_q_optimizer1 = optim.Adam(soft_q_net1.parameters(), lr=soft_q_lr)
@@ -435,8 +458,8 @@ soft_q_optimizer2 = optim.Adam(soft_q_net2.parameters(), lr=soft_q_lr)
 policy_optimizer = optim.Adam(policy_net.parameters(), lr=policy_lr)
 
 
-replay_buffer_size = 100000
-replay_buffer = ReplayBuffer(replay_buffer_size)
+replay_buffer_size = 20000
+replay_buffer = ReplayBuffer(replay_buffer_size, min_reward, max_reward)
 temp_buffer = ReplayBuffer(replay_buffer_size)
 
 max_frames  = 10000000
@@ -454,8 +477,7 @@ entropy_decay = 0.999   # Exponential decay of alpha
 #Load function
 if TRAIN != 0:
     replay_buffer, rewards, test_rewards, frame_idx = load()
-    alpha = alpha*entropy_decay**(int(frame_idx/1000))
-
+    alpha = max(alpha*entropy_decay**(int(frame_idx/1000)), 0.01)
 if TRAIN != 2:
     try:
         while frame_idx < max_frames:
@@ -498,7 +520,7 @@ if TRAIN != 2:
                     update(batch_size, alpha)
                 
                 if frame_idx % 1000 == 0:
-                    alpha*=entropy_decay
+                    alpha=max(alpha*entropy_decay, 0.01)
 
                 if done:
                     break
@@ -524,10 +546,10 @@ if TRAIN != 2:
     else:
         print("Stopped without saving")
         raise SystemExit(0)
-'''
+
 if test_rewards!=[]:
     plot(frame_idx, np.sum(test_rewards, 1)/9, "Average reward per episode over 9 tests", xlabel="Episodes")
 else:
     plot(frame_idx, rewards, "Average reward per frame in episode", xlabel="Episodes")
 test(True, 0, False)
-'''
+
