@@ -21,7 +21,7 @@ use_cuda = torch.cuda.is_available()
 device   = torch.device("cuda" if use_cuda else "cpu")
 
 class ReplayBuffer:
-    def __init__(self, capacity, min_reward = 0, max_reward=-1000):
+    def __init__(self, capacity):
         self.capacity = capacity
         self.buffer = []
         self.position = 0
@@ -33,8 +33,6 @@ class ReplayBuffer:
         sum_weights = sum(self.discounted_reward)
         for i in range(self.time_horizon):
             self.discounted_reward[i]/=sum_weights
-        self.min_reward = min_reward
-        self.max_reward = max_reward
     
     def push(self, state, action, reward, next_state, done):
         if len(self.buffer) < self.capacity:
@@ -70,17 +68,9 @@ class ReplayBuffer:
         new_rewards = [] #np.ones(len(old_rewards))*sum(old_rewards)/len(old_rewards)
         #prev_action = np.zeros(action_dim)
 
-        sum_reward = sum(old_rewards)
-        if sum_reward<self.min_reward:
-            self.min_reward = sum_reward
-        elif sum_reward>self.max_reward:
-            self.max_reward = sum_reward
-        multiplier = ((sum_reward-self.max_reward)/(self.min_reward-self.max_reward))*2-1
-        old_rewards = multiplier*old_rewards
-
         for i in range(self.time_horizon):
             if i ==0: continue
-            old_rewards[i] = old_rewards[i]/sum(self.discounted_reward[self.time_horizon-i:])
+            old_rewards[i] = old_rewards[i]/(sum(self.discounted_reward[self.time_horizon-i:]))
 
         for i in range(len(temp_buffer)):
             
@@ -249,7 +239,7 @@ class PolicyNetwork(nn.Module):
         raise SystemExit(0)
         '''
 
-def update(batch_size,soft_tau=1e-2, alpha = 1):
+def update(batch_size, soft_tau=1e-2, alpha = 1):
     
     state, action, reward, next_state, done = replay_buffer.sample(batch_size)
 
@@ -274,7 +264,6 @@ def update(batch_size,soft_tau=1e-2, alpha = 1):
     target_q_value = reward + (1 - done) * target_value
     q_value_loss1 = soft_q_criterion1(predicted_q_value1, target_q_value.detach())
     q_value_loss2 = soft_q_criterion2(predicted_q_value2, target_q_value.detach())
-
     
     soft_q_optimizer1.zero_grad()
     q_value_loss1.backward()
@@ -287,7 +276,7 @@ def update(batch_size,soft_tau=1e-2, alpha = 1):
     predicted_new_q_value = torch.min(soft_q_net1(state, new_action),soft_q_net2(state, new_action))
     target_value_func = predicted_new_q_value - alpha * log_prob
     value_loss = value_criterion(predicted_value, target_value_func.detach())
-    
+
     value_optimizer.zero_grad()
     value_loss.backward()
     value_optimizer.step()
@@ -380,35 +369,29 @@ def test(render=False, random=0, test_sims=True):
 def norm_weight():
     max_values = np.zeros(state_dim, dtype=float)
     episode_reward = 0.0
-    min_reward = 0.0
-    max_reward = -1000.0
 
     env.reset()
     #print("##################### CHANGE NORMWEIGHT BACK!!!! ########################")
     for i in range(10000):
         action = 2*np.random.random(action_dim)-1
-        next_state, reward, done, _ = env.step(action)
-        episode_reward+=reward
+        next_state, _, done, _ = env.step(action)
 
         max_values = np.maximum(np.absolute(next_state), max_values)
 
         if done:
-            if episode_reward<min_reward:min_reward = episode_reward
-            if episode_reward>max_reward: max_reward = episode_reward
-            episode_reward = 0
             env.reset()
 
     norm_weight = 1/(max_values)
     norm_weight[norm_weight == inf] = 1
 
-    return norm_weight, min_reward, max_reward
+    return norm_weight
 
 ####################################################################
 #                       START OF MAIN FUNCTION
 #
 ####################################################################
 
-TRAIN = 0 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
+TRAIN = 2 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
 saving = 0 # 0 = not saving, 1 = saving
 env_name = "KevinFallingHumanoid-v0"
 env = NormalizedActions(gym.make(env_name))
@@ -420,7 +403,7 @@ if TRAIN == 0:
     else:
         print("No save file created")
 else:
-    directory_name = "KevinFallingHumanoid-v0_06-22-22-08 (exo, small RB, 100Hz, real input, forward, LP)"
+    directory_name = "KevinFallingHumanoid-v0_06-25-18-10 (small RB, forward) (1)"
 
 action_dim = env.action_space.shape[0]
 state_dim  = env.observation_space.shape[0]
@@ -429,9 +412,9 @@ hidden_dim = 512
 if TRAIN==0:
     #print("NO WEIGHTS")
     #norm_weights = np.ones(state_dim)
-    norm_weights, min_reward, max_reward = norm_weight()
+    norm_weights = norm_weight()
 else:
-    norm_weights, _, _ = np.ones(state_dim)
+    norm_weights = np.ones(state_dim)
 
 value_net        = ValueNetwork(state_dim, hidden_dim, norm_weights).to(device)
 target_value_net = ValueNetwork(state_dim, hidden_dim, norm_weights).to(device)
@@ -458,8 +441,8 @@ soft_q_optimizer2 = optim.Adam(soft_q_net2.parameters(), lr=soft_q_lr)
 policy_optimizer = optim.Adam(policy_net.parameters(), lr=policy_lr)
 
 
-replay_buffer_size = 20000
-replay_buffer = ReplayBuffer(replay_buffer_size, min_reward, max_reward)
+replay_buffer_size = 100000
+replay_buffer = ReplayBuffer(replay_buffer_size)
 temp_buffer = ReplayBuffer(replay_buffer_size)
 
 max_frames  = 10000000
@@ -470,7 +453,7 @@ rewards     = []
 test_rewards= []
 batch_size  = 128
 alpha       = 1.0       # Relative weight of entropy
-entropy_decay = 0.999   # Exponential decay of alpha
+entropy_decay = 1.0   # Exponential decay of alpha
 
 #plottime = 0
 
@@ -512,12 +495,12 @@ if TRAIN != 2:
                 frame_idx += 1
                 '''
                 if plottime >= 600:
-                    update(batch_size, alpha)
+                    update(batch_size, alpha=alpha)
                 else:
                     plottime+=1
                 '''
                 if len(replay_buffer) > batch_size:
-                    update(batch_size, alpha)
+                    update(batch_size, alpha=alpha)
                 
                 if frame_idx % 1000 == 0:
                     alpha=max(alpha*entropy_decay, 0.01)
@@ -551,5 +534,5 @@ if test_rewards!=[]:
     plot(frame_idx, np.sum(test_rewards, 1)/9, "Average reward per episode over 9 tests", xlabel="Episodes")
 else:
     plot(frame_idx, rewards, "Average reward per frame in episode", xlabel="Episodes")
-test(True, 0, False)
+test(True, 0, True)
 

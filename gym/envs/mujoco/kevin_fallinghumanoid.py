@@ -38,7 +38,7 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
         dtr = math.pi/180 #degrees to radians
         # Initial free and joint positions, qpos[3:7] (rotation) are determined by qrot, so the quaternion can be declared properly
-        #                             free trans    free rot       right leg           left leg            abdomen                      right arm        left arm
+        #                             free trans    free rot       right leg           left leg            abdomen                      right arm                    left arm
         self.init_qpos_low = np.array([0, 0, 0.87,   1, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   -35*dtr, -45*dtr, -30*dtr,   -85*dtr, -85*dtr, -90*dtr,   -60*dtr, -60*dtr, -90*dtr]) 
         self.init_qpos_high= np.array([0, 0, 0.87,   1, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   35*dtr , 45*dtr , 75*dtr ,   60*dtr , 60*dtr ,  50*dtr,   85*dtr , 85*dtr , 50*dtr])
         #                             [rotation of fall, direction of fall (0=forward)]
@@ -81,7 +81,7 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         pos_after = mass_center(self.model, self.sim)
         data = self.sim.data
 
-        kin_energy_cost = 20 * np.sign(pos_after - pos_before) * np.square(pos_after - pos_before) / self.dt #kinetic energy is measured as the vertical displacement of the total CoM
+        kin_energy_cost = 0# 20 * np.sign(pos_after - pos_before) * np.square(pos_after - pos_before) / self.dt #kinetic energy is measured as the vertical displacement of the total CoM
 
         head_height_cost = -2 * max(min(data.body_xpos[14, 2]-0.3, 0)*((data.body_xpos[14, 2]-head_height_before)/self.dt), 0) # A cost associated to keeping the head as high as possible
 
@@ -136,33 +136,30 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
             qrot = self.np_random.uniform(low=self.init_qrot_low, high=self.init_qrot_high)
             qvel = self.np_random.uniform(low=self.init_qvel_low, high=self.init_qvel_high) + self.np_random.uniform(low=-c, high=c, size=self.model.nv)
         else:
+            dtr = math.pi/180
             mjcf.mj_setTotalmass(self.model, 80)
-            case = [(self.test-1)%3, math.floor((self.test-1)/3)]
-
-            qrot = np.zeros(2)
-            #case[0] = low/mid/high   [0/1/2]
-            if case[0] == 0:
-                qpos = self.init_qpos_low + 0
+            qpos = np.array([0, 0, 0.87,   1, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0,   0, 0, 0,   0, 0, 0])
+            qrot = (self.init_qrot_low + self.init_qrot_high)/2
+            qvel = (self.init_qvel_low + self.init_qvel_high)/2
+            if self.test==2: #minimum mass
+                mjcf.mj_setTotalmass(self.model, 70)
+            elif self.test==3: # maximum mass
+                mjcf.mj_setTotalmass(self.model, 90)
+            elif self.test==4: #minimum initial push
                 qrot[0] = self.init_qrot_low[0]
                 qvel = self.init_qvel_low + 0
-            elif case[0] == 1:
-                qpos = np.zeros(len(self.init_qpos_low))
-                qpos[2] = (self.init_qpos_low[2] + self.init_qpos_high[2])/2
-                qrot[0] = (self.init_qrot_low[0] + self.init_qrot_high[0])/2
-                qvel = (self.init_qvel_low + self.init_qvel_high)/2
-            else:
-                qpos = self.init_qpos_high + 0
+            elif self.test==5: #maximum initial push
                 qrot[0] = self.init_qrot_high[0]
                 qvel = self.init_qvel_high + 0
-
-            #case[1] = left/mid/right [0/1/2]
-            if case[1] == 0:
+            elif self.test==6: #most towards the left
                 qrot[1] = self.init_qrot_low[1]
-            elif case[1] == 1:
-                qrot[1] = (self.init_qrot_low[1] + self.init_qrot_high[1])/2
-            else:
+            elif self.test==7: #most towards the right
                 qrot[1] = self.init_qrot_high[1]
-        
+            elif self.test==8: #arms at the sides
+                qpos = np.array([0, 0, 0.87,   1, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0,   50*dtr, -30*dtr, -90*dtr,   -50*dtr, 30*dtr, -90*dtr])
+            elif self.test==9: #arms aimed backwards
+                qpos = np.array([0, 0, 0.87,   1, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0,   0, 0, 0,   -85*dtr, -85*dtr, -90*dtr,   85*dtr, 85*dtr, -90*dtr])
+
         print("\rNew episode created with, Angle with ground: {:f}  Direction of fall: {:f}  Translational velocity: {:f}  Rotational velocity: {:f}  Mass: {:f}".format(qrot[0], qrot[1], qvel[0], qvel[3], mjcf.mj_getTotalmass(self.model)), end="\n")
 
         qpos[2] = qpos[2]*math.cos(qrot[0]*0.75)
