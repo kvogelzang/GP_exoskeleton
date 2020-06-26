@@ -94,10 +94,40 @@ class ReplayBuffer:
     def __len__(self):
         return len(self.buffer)
 
+class PlotStorage:
+    def __init__(self):
+        self.F_store = []
+        self.v_store = []
+
+        self.gtb = np.array([0, 1, 2, 3, 3, 4, 4, 5, 6, 6, 7, 7, 8, 9, 14, 9, 10, 11, 11, 12, 13, 13])
+        self.v_prev = np.zeros(len(self.gtb))
+
+    def push(self, data):
+        F = data[0]
+        self.F_store.append(None)
+        self.F_store[-1] = F
+
+        self.v_store.append(None)
+        self.v_imp = np.zeros(len(data[1]))
+        self.v_imp[self.gtb[F!=0]] = self.v_prev[self.gtb[F!=0]]
+        self.v_store[-1] = self.v_imp
+        
+        self.v_prev = data[1]
+
+    def plot(self):
+        F = np.array(self.F_store)
+        v = np.array(self.v_store)
+        for i in range(len(F[1,:])):
+            plt.figure(figsize=(10,5))
+            plot(len(self.F_store), F[:,i], "Impact forces [N]", subplot=211)#, legend=1)
+            plot(len(self.v_store), v[:,self.gtb[i]], "Impact velocities [m/s]", subplot=212)#, legend=1)
+            plt.show()
+
 def plot(frame_idx, rewards, ylabel="", xlabel=None, subplot=None, legend=None):
-    plt.figure(figsize=(10,5))
     if subplot:
         plt.subplot(subplot)
+    else:
+        plt.figure(figsize=(10,5))
     #plt.title('frame %s. reward: %s' % (frame_idx, rewards[-1]))
     plt.plot(range(len(rewards)), rewards, marker='.', ms=1)
     plt.ylabel(ylabel)
@@ -106,8 +136,13 @@ def plot(frame_idx, rewards, ylabel="", xlabel=None, subplot=None, legend=None):
     else:
         plt.xlabel("Past time steps (10 ms per step)")
     if legend:
-        plt.legend(range(rewards.shape[1]))
-    plt.show()
+        if legend==1:
+            plt.legend(range(rewards.shape[1]))
+        else:
+            plt.legend(legend)
+    if not subplot:
+        plt.show()
+    
 
 class NormalizedActions(gym.ActionWrapper):
     def action(self, action):
@@ -391,7 +426,7 @@ def norm_weight():
 #
 ####################################################################
 
-TRAIN = 2 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
+TRAIN = 1 # 0 = start from scratch, 1 = continue from previous, 2 = test from previous
 saving = 0 # 0 = not saving, 1 = saving
 env_name = "KevinFallingHumanoid-v0"
 env = NormalizedActions(gym.make(env_name))
@@ -456,6 +491,7 @@ alpha       = 1.0       # Relative weight of entropy
 entropy_decay = 1.0   # Exponential decay of alpha
 
 #plottime = 0
+#plot_storage = PlotStorage()
 
 #Load function
 if TRAIN != 0:
@@ -465,6 +501,7 @@ if TRAIN != 2:
     try:
         while frame_idx < max_frames:
             state = env.reset()
+            #plot_storage.push(env.get_plot_obs())
             '''
             for i in range(10000):
                 action = 0*action_dim
@@ -494,7 +531,9 @@ if TRAIN != 2:
                 episode_reward.append(reward)
                 frame_idx += 1
                 '''
+                plot_storage.push(env.get_plot_obs())
                 if plottime >= 600:
+                    plot_storage.plot()
                     update(batch_size, alpha=alpha)
                 else:
                     plottime+=1

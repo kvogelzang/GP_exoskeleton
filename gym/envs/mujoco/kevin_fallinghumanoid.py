@@ -74,6 +74,21 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
                                data.qfrc_actuator.flat[6:]]) #[np.array([6, 8, 9, 10, 12, 14, 15, 16])]])
         '''
 
+    def get_plot_obs(self):
+        data = self.sim.data
+
+        impact_force = np.zeros(self.force_weights.shape[0])
+        for i in range(data.ncon):
+            c_force = np.zeros(6, dtype=np.float64)
+            mjcf.mj_contactForce(self.model, data, i, c_force)
+            impact_force[data.contact[i].geom1] += c_force[0]
+            impact_force[data.contact[i].geom2] += c_force[0]
+        impact_force[0]=0.0
+
+        vert_vel = data.cvel[:,2]
+
+        return impact_force, vert_vel
+
     def step(self, a):
         pos_before = mass_center(self.model, self.sim)
         head_height_before = self.sim.data.body_xpos[14, 2]
