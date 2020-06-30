@@ -26,7 +26,7 @@ class ReplayBuffer:
         self.buffer = []
         self.position = 0
         discount_factor = 0.98
-        self.time_horizon = 50
+        self.time_horizon = 20
         self.discounted_reward = np.ones(self.time_horizon)
         for i in range(self.time_horizon):
             self.discounted_reward[i]*=discount_factor**i
@@ -47,18 +47,41 @@ class ReplayBuffer:
         '''
         # This can be used to plot a subset of the data
         length = 400
-        plot(len(self.buffer), action[self.position-length:self.position, :], "Normalized action (-1,1)", legend=1)
-        plot(len(self.buffer), np.transpose([reward[self.position-length:self.position], done[self.position-length:self.position]==True]), "Reward")
-        #plot(len(self.buffer), state[self.position-length:self.position, 0:5], "Free body position [0=m] / [1:4 = quat]", legend=True)
-        #plot(len(self.buffer), state[self.position-length:self.position, 5:26], "Joint position [rad]")
-        #plot(len(self.buffer), state[self.position-length:self.position, 26:32], "Free body velocity [0:2=m/s] / [3:5=rad/s]", legend=True)
-        #plot(len(self.buffer), state[self.position-length:self.position, 32:53], "Joint velocity [rad/s]")
-        #plot(len(self.buffer), state[self.position-200:self.position, 53:61])
+        plot(action[self.position-length:self.position, :], "Normalized action (-1,1)", legend=1)
+        plot(np.transpose([reward[self.position-length:self.position], done[self.position-length:self.position]==True]), "Reward")
+        
+        #plot(state[self.position-length:self.position, 0:8], "Joint position [rad]", legend=["Right Hip X", "Right Hip Y", "Right Knee", "Right Ankle", "Left Hip X", "Left Hip Y", "Left Knee", "Left Ankle"])
+        #plot(state[self.position-length:self.position, 8:16], "Joint velocity [rad/s]", legend=["Right Hip X", "Right Hip Y", "Right Knee", "Right Ankle", "Left Hip X", "Left Hip Y", "Left Knee", "Left Ankle"])
+        #names = ["Acceleration [m/s^2]","Angular velocity [rad/s]","Velocity [m/s]"]
+        #for i in range(3):
+        #    plt.figure(figsize=(15,8))
+        #    plot(state[self.position-length:self.position, 16+3*i:19+3*i], "Pelvis " + names[i], legend=1, subplot=321)
+        #    plot(state[self.position-length:self.position, 25+3*i:28+3*i], "Torso " + names[i], legend=1, subplot=322)
+        #    plot(state[self.position-length:self.position, 34+3*i:37+3*i], "Right Shin " + names[i], legend=1, subplot=324)
+        #    plot(state[self.position-length:self.position, 43+3*i:46+3*i], "Left Shin " + names[i], legend=1, subplot=323)
+        #    plot(state[self.position-length:self.position, 52+3*i:55+3*i], "Right Arm " + names[i], legend=1, subplot=326)
+        #    plot(state[self.position-length:self.position, 61+3*i:64+3*i], "Left Arm " + names[i], legend=1, subplot=325)
+        #    plt.show()
+        #plt.figure(figsize=(15,8))
+        #plot(state[self.position-length:self.position, 70:73], "-z vector Pelvis", subplot=321, legend=["X", "Y", "Z"])
+        #plot(state[self.position-length:self.position, 73:76], "-z vector Torso", subplot=322, legend=["X", "Y", "Z"])
+        #plot(state[self.position-length:self.position, 76:79], "-z vector Right Shin", subplot=324, legend=["X", "Y", "Z"])
+        #plot(state[self.position-length:self.position, 79:82], "-z vector Left Shin", subplot=323, legend=["X", "Y", "Z"])
+        #plot(state[self.position-length:self.position, 82:85], "-z vector Right Arm", subplot=326, legend=["X", "Y", "Z"])
+        #plot(state[self.position-length:self.position, 85:88], "-z vector Left Arm", subplot=325, legend=["X", "Y", "Z"])
+        #plt.show()
+        #plot(state[self.position-length:self.position, 89:97], "Joint force [N]", legend=1)
+        #plot(state[self.position-length:self.position, 0:5], "Free body position [0=m] / [1:4 = quat]", legend=True)
+        #plot(state[self.position-length:self.position, 5:26], "Joint position [rad]")
+        #plot(state[self.position-length:self.position, 26:32], "Free body velocity [0:2=m/s] / [3:5=rad/s]", legend=True)
+        #plot(state[self.position-length:self.position, 32:53], "Joint velocity [rad/s]")
+        #plot(state[self.position-200:self.position, 53:61])
         #for i in range(10, 14):
         #    print(i)
-        #    plot(len(self.buffer), state[self.position-200:self.position, 53+10*i:63+10*i])
-        #    plot(len(self.buffer), state[self.position-200:self.position, 183+6*i:189+6*i])
-        plot(len(self.buffer), state[self.position-length:self.position, -8:], "Actuator torque [Nm/rad]", legend=1) #78:106, 267:289,  np.array([267,269,270,271,273,275,276,277]), -8:
+        #    plot(state[self.position-200:self.position, 53+10*i:63+10*i])
+        #    plot(state[self.position-200:self.position, 183+6*i:189+6*i])
+        
+        plot(state[self.position-length:self.position, np.array([267,269,270,271,273,275,276,277])], "Actuator torque [Nm/rad]", legend=["Right Hip X", "Right Hip Y", "Right Knee", "Right Ankle", "Left Hip X", "Left Hip Y", "Left Knee", "Left Ankle"]) #78:106, 267:289,  np.array([267,269,270,271,273,275,276,277]), -8:
         raise SystemExit(0)
         '''
         return state, action, reward, next_state, done
@@ -67,11 +90,11 @@ class ReplayBuffer:
         old_rewards = np.array(old_rewards)
         new_rewards = [] #np.ones(len(old_rewards))*sum(old_rewards)/len(old_rewards)
         #prev_action = np.zeros(action_dim)
-
+        '''
         for i in range(self.time_horizon):
             if i ==0: continue
             old_rewards[i] = old_rewards[i]/(sum(self.discounted_reward[self.time_horizon-i:]))
-
+        '''
         for i in range(len(temp_buffer)):
             
             if i+self.time_horizon<len(temp_buffer):
@@ -119,17 +142,18 @@ class PlotStorage:
         v = np.array(self.v_store)
         for i in range(len(F[1,:])):
             plt.figure(figsize=(10,5))
-            plot(len(self.F_store), F[:,i], "Impact forces [N]", subplot=211)#, legend=1)
-            plot(len(self.v_store), v[:,self.gtb[i]], "Impact velocities [m/s]", subplot=212)#, legend=1)
+            plot(F[:,i], "Impact forces [N]", subplot=211)#, legend=1)
+            plot(v[:,self.gtb[i]], "Impact velocities [m/s]", subplot=212)#, legend=1)
             plt.show()
 
-def plot(frame_idx, rewards, ylabel="", xlabel=None, subplot=None, legend=None):
+def plot(data, ylabel="", xlabel=None, subplot=None, legend=None, title=None):
     if subplot:
         plt.subplot(subplot)
     else:
         plt.figure(figsize=(10,5))
-    #plt.title('frame %s. reward: %s' % (frame_idx, rewards[-1]))
-    plt.plot(range(len(rewards)), rewards, marker='.', ms=1)
+    if title:
+        plt.title(title)
+    plt.plot(range(len(data)), data, marker='.', ms=1)
     plt.ylabel(ylabel)
     if xlabel:
         plt.xlabel(xlabel)
@@ -137,7 +161,7 @@ def plot(frame_idx, rewards, ylabel="", xlabel=None, subplot=None, legend=None):
         plt.xlabel("Past time steps (10 ms per step)")
     if legend:
         if legend==1:
-            plt.legend(range(rewards.shape[1]))
+            plt.legend(range(data.shape[1]))
         else:
             plt.legend(legend)
     if not subplot:
@@ -205,7 +229,19 @@ class SoftQNetwork(nn.Module):
         x = self.linear3(x)
 
         return x
-    
+        '''
+    def show(self, state, action):
+        # This can be used to show the activation of the various layers
+
+        y = torch.cat([state, action], 1) #state
+        y = np.repeat(np.expand_dims(y, axis=1), self.linear1.weight.data.shape[0], axis=1)
+        x = np.absolute(self.linear1.weight.data*y)
+        x = np.max(x.numpy(), axis=0, keepdims=False)
+        plt.figure()
+        plt.imshow(np.transpose(x), cmap='gray')
+        plt.show()
+        raise SystemExit(0)
+    '''
 class PolicyNetwork(nn.Module):
     def __init__(self, num_inputs, num_actions, hidden_size, norm_weights, init_w=3e-3, log_std_min=-20, log_std_max=2):
         super(PolicyNetwork, self).__init__()
@@ -245,6 +281,7 @@ class PolicyNetwork(nn.Module):
         z      = normal.sample()
         action = torch.tanh(mean+ std*z.to(device)) # Reparametrization trick
         log_prob = Normal(mean, std).log_prob(mean+ std*z.to(device)) - torch.log(1 - action.pow(2) + epsilon)
+        
         log_prob = torch.mean(log_prob, 1, keepdim=True) #torch.log(torch.prod(log_prob.exp(), 1, keepdim=True))
 
         return action, log_prob, z, mean, log_std
@@ -260,22 +297,12 @@ class PolicyNetwork(nn.Module):
         
         action  = action.cpu()#.detach().cpu().numpy()
         return action[0]
-        '''
-    def show(self, state, action):
-        # This can be used to show the activation of the various layers
+        
 
-        y = state #torch.cat([state, action], 1)
-        y = np.repeat(np.expand_dims(y, axis=1), self.linear1.weight.data.shape[0], axis=1)
-        x = np.absolute(self.linear1.weight.data*y)
-        x = np.max(x.numpy(), axis=0, keepdims=False)
-        plt.figure()
-        plt.imshow(np.transpose(x), cmap='gray')
-        plt.show()
-        raise SystemExit(0)
-        '''
+def update(batch_size, soft_tau=1e-2):
+    gamma = 0.99
+    global alpha
 
-def update(batch_size, soft_tau=1e-2, alpha = 1):
-    
     state, action, reward, next_state, done = replay_buffer.sample(batch_size)
 
     state      = torch.FloatTensor(state).to(device)
@@ -284,7 +311,7 @@ def update(batch_size, soft_tau=1e-2, alpha = 1):
     reward     = torch.FloatTensor(reward).unsqueeze(1).to(device)
     done       = torch.FloatTensor(np.float32(done)).unsqueeze(1).to(device)
 
-    #policy_net.show(state, action)
+    #soft_q_net1.show(state, action)
     #raise SystemExit(0)
     #print(np.transpose(target_value_func.detach().numpy()))
 
@@ -296,7 +323,7 @@ def update(batch_size, soft_tau=1e-2, alpha = 1):
     
     # Training Q Function
     target_value = target_value_net(next_state)
-    target_q_value = reward + (1 - done) * target_value
+    target_q_value = reward + (1 - done) * gamma * target_value
     q_value_loss1 = soft_q_criterion1(predicted_q_value1, target_q_value.detach())
     q_value_loss2 = soft_q_criterion2(predicted_q_value2, target_q_value.detach())
     
@@ -315,7 +342,7 @@ def update(batch_size, soft_tau=1e-2, alpha = 1):
     value_optimizer.zero_grad()
     value_loss.backward()
     value_optimizer.step()
-    
+
     # Training Policy Function
     policy_loss = (alpha * log_prob - predicted_new_q_value).mean()
 
@@ -323,7 +350,10 @@ def update(batch_size, soft_tau=1e-2, alpha = 1):
     policy_loss.backward()
     policy_optimizer.step()
     
-    
+    # Training alpha
+    alpha += alpha_lr * (-alpha * log_prob - alpha *min_entropy).mean()
+    alpha  = alpha.detach()
+
     for target_param, param in zip(target_value_net.parameters(), value_net.parameters()):
         target_param.data.copy_(
             target_param.data * (1.0 - soft_tau) + param.data * soft_tau
@@ -345,6 +375,8 @@ def save(filename, directory):
         pickle.dump(test_rewards, pickle_file, pickle.HIGHEST_PROTOCOL)
     with open(path + "/" + filename + "_frame_idx", 'wb') as pickle_file:
         pickle.dump(frame_idx, pickle_file, pickle.HIGHEST_PROTOCOL)
+    with open(path + "/" + filename + "_alpha", 'wb') as pickle_file:
+        pickle.dump(alpha, pickle_file, pickle.HIGHEST_PROTOCOL)
 
 def load(filename="end", directory="saves"):
     path = '../%s/%s' % (directory, directory_name)
@@ -368,11 +400,18 @@ def load(filename="end", directory="saves"):
             test_rewards = pickle.load(pickle_file)
     except:
         test_rewards = []
+
+    try:
+        with open(path + "/" + filename + "_alpha", 'rb') as pickle_file:
+            alpha = pickle.load(pickle_file)
+    except:
+        alpha = 1.0
+
     
     with open(path + "/" + filename + "_frame_idx", 'rb') as pickle_file:
         frame_idx = pickle.load(pickle_file)
 
-    return (replay_buffer, rewards, test_rewards, frame_idx)
+    return (replay_buffer, rewards, test_rewards, frame_idx, alpha)
 
 def test(render=False, random=0, test_sims=True):
     # Run the test initial positions of the environment
@@ -387,7 +426,7 @@ def test(render=False, random=0, test_sims=True):
                 env.render()
             action = policy_net.get_action(state, random).detach()
             state, reward, done, info = env.step(action.numpy())
-            episode_reward[-1]+=reward
+            episode_reward[-1]+= reward - 0.05*np.square(action).sum() 
             if done:
                 print("\rTest case {:d}: Episode reward: {:f}".format(env.get_test(), episode_reward[-1]), end="\n")
                 if test_sims: env.add_to_test(1)
@@ -438,7 +477,7 @@ if TRAIN == 0:
     else:
         print("No save file created")
 else:
-    directory_name = "KevinFallingHumanoid-v0_06-25-18-10 (small RB, forward) (1)"
+    directory_name = "KevinFallingHumanoid-v0_06-29-21-52 (small RB, forward, old input, lr=1e-4) (1)"
 
 action_dim = env.action_space.shape[0]
 state_dim  = env.observation_space.shape[0]
@@ -469,6 +508,7 @@ soft_q_criterion2 = nn.MSELoss()
 value_lr  = 3e-5
 soft_q_lr = 3e-5
 policy_lr = 3e-5
+alpha_lr  = 3e-4
 
 value_optimizer  = optim.Adam(value_net.parameters(), lr=value_lr)
 soft_q_optimizer1 = optim.Adam(soft_q_net1.parameters(), lr=soft_q_lr)
@@ -488,15 +528,14 @@ rewards     = []
 test_rewards= []
 batch_size  = 128
 alpha       = 1.0       # Relative weight of entropy
-entropy_decay = 1.0   # Exponential decay of alpha
+min_entropy = -1.0      # Minimal wanted entropy
 
 #plottime = 0
 #plot_storage = PlotStorage()
 
 #Load function
 if TRAIN != 0:
-    replay_buffer, rewards, test_rewards, frame_idx = load()
-    alpha = max(alpha*entropy_decay**(int(frame_idx/1000)), 0.01)
+    replay_buffer, rewards, test_rewards, frame_idx, alpha = load()
 if TRAIN != 2:
     try:
         while frame_idx < max_frames:
@@ -531,18 +570,15 @@ if TRAIN != 2:
                 episode_reward.append(reward)
                 frame_idx += 1
                 '''
-                plot_storage.push(env.get_plot_obs())
+                #plot_storage.push(env.get_plot_obs())
                 if plottime >= 600:
-                    plot_storage.plot()
-                    update(batch_size, alpha=alpha)
+                    #plot_storage.plot()
+                    update(batch_size)
                 else:
                     plottime+=1
                 '''
                 if len(replay_buffer) > batch_size:
-                    update(batch_size, alpha=alpha)
-                
-                if frame_idx % 1000 == 0:
-                    alpha=max(alpha*entropy_decay, 0.01)
+                    update(batch_size)
 
                 if done:
                     break
@@ -570,8 +606,8 @@ if TRAIN != 2:
         raise SystemExit(0)
 
 if test_rewards!=[]:
-    plot(frame_idx, np.sum(test_rewards, 1)/9, "Average reward per episode over 9 tests", xlabel="Episodes")
+    plot(np.sum(test_rewards, 1)/9, "Average reward per episode over 9 tests", xlabel="Episodes")
 else:
-    plot(frame_idx, rewards, "Average reward per frame in episode", xlabel="Episodes")
-test(True, 0, True)
+    plot(rewards, "Average reward per frame in episode", xlabel="Episodes")
+test(True, 0, False)
 

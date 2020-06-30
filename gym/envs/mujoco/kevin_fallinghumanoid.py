@@ -57,7 +57,7 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     def _get_obs(self):
         data = self.sim.data
-        
+        '''
         # Realistic input
         return np.concatenate([data.qpos.flat[np.array([6, 8, 9, 10, 12, 14, 15, 16])],
                                data.qvel.flat[np.array([5, 7, 8, 9, 11, 13, 14, 15])],
@@ -72,7 +72,7 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
                                data.cinert.flat[10:-10],
                                data.cvel.flat[6:],
                                data.qfrc_actuator.flat[6:]]) #[np.array([6, 8, 9, 10, 12, 14, 15, 16])]])
-        '''
+        
 
     def get_plot_obs(self):
         data = self.sim.data
@@ -96,9 +96,9 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         pos_after = mass_center(self.model, self.sim)
         data = self.sim.data
 
-        kin_energy_cost = 0# 20 * np.sign(pos_after - pos_before) * np.square(pos_after - pos_before) / self.dt #kinetic energy is measured as the vertical displacement of the total CoM
+        kin_energy_cost = 2 * np.sign(pos_after - pos_before) * np.square(pos_after - pos_before) / self.dt #kinetic energy is measured as the vertical displacement of the total CoM
 
-        head_height_cost = -2 * max(min(data.body_xpos[14, 2]-0.3, 0)*((data.body_xpos[14, 2]-head_height_before)/self.dt), 0) # A cost associated to keeping the head as high as possible
+        head_height_cost = -0.2 * max(min(data.body_xpos[14, 2]-0.3, 0)*((data.body_xpos[14, 2]-head_height_before)/self.dt), 0) # A cost associated to keeping the head as high as possible
 
         quad_ctrl_cost = 0#-0.002 * np.square(data.ctrl).sum()
         
@@ -110,7 +110,7 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
             force_normals[data.contact[i].geom1] += c_force[0]
             force_normals[data.contact[i].geom2] += c_force[0]
             #print("hit bodies are: {:d} and {:d} with force {:f}".format(data.contact[i].geom1, data.contact[i].geom2, c_force[0]), end="\n")
-        body_hit_cost = -3e-5 * np.sum(self.force_weights * force_normals) # Cost that is related to the impact force, with different weights for different body parts
+        body_hit_cost = -3e-6 * np.sum(self.force_weights * force_normals) # Cost that is related to the impact force, with different weights for different body parts
 
         reward = kin_energy_cost + head_height_cost + quad_ctrl_cost + body_hit_cost
         #reward = head_height_cost
@@ -128,7 +128,6 @@ class Kevin_FallingHumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def reset_model(self):
         c = 0.01
 
-        
         qpos, qrot, qvel = self.select_init(c)
 
         self.still_timer = 0
